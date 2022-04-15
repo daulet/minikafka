@@ -7,11 +7,15 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/daulet/minikafka"
 	"github.com/zeromq/goczmq"
 )
 
+// TODO implement publisher that abstracts away zmq and wait on receive to ack
+// TODO publisher should timeout on ack, broker won't send a nack in all cases
+// TODO if publisher is concurrent, how does it distinguish acks from different goroutines? - update test accordingly
 func TestWritesAreAcked(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -22,6 +26,7 @@ func TestWritesAreAcked(t *testing.T) {
 	broker := minikafka.NewBroker(
 		minikafka.BrokerPort(port),
 		minikafka.BrokerStoreaDir(os.TempDir()),
+		minikafka.BrokerPollingTimeout(100*time.Millisecond),
 	)
 
 	wg.Add(1)
@@ -41,9 +46,7 @@ func TestWritesAreAcked(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error sending frame: %v", err)
 		}
-	}
-
-	for i := 0; i < count; i++ {
+		// wait for ack, there is no way to distinguish between acks for different messages
 		reply, err := dealer.RecvMessage()
 		if err != nil {
 			log.Fatal(err)

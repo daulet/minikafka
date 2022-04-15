@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -54,10 +55,25 @@ func (b *Broker) Run(ctx context.Context) {
 	msgCh := make(chan [][]byte)
 	ackCh := make(chan []byte)
 
+	// ensure storage file exists
+	{
+		logFile, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_APPEND|os.O_CREATE, 0660)
+		if err != nil {
+			log.Fatal(err)
+		}
+		logFile.Close()
+	}
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		b.write(ctx, msgCh, ackCh)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b.publish(ctx)
 	}()
 
 	router, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.port))
@@ -102,7 +118,8 @@ func (b *Broker) Run(ctx context.Context) {
 }
 
 func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- []byte) {
-	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0660)
+	// don't pass O_CREATE, file is ensured upstream, panic otherwise
+	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_APPEND, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -119,6 +136,7 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- 
 			// data[0] is the sender, data[1] is the message
 			_, err := w.Write(data[1])
 			if err != nil {
+				// TODO send a nack
 				continue
 			}
 			w.Flush()
@@ -128,13 +146,37 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- 
 	}
 }
 
+func (b *Broker) publish(ctx context.Context) {
+	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDONLY, 0660)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	var offset int64
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		f.Seek(offset, 0)
+		n, err := io.Copy(os.Stdout, f)
+		if err != nil {
+			log.Fatal(err)
+		}
+		offset += int64(n)
+	}
+}
+
 func (b *Broker) acknowlege(ctx context.Context, sock *goczmq.Sock, ackCh <-chan []byte) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case data := <-ackCh:
-			sock.SendFrame(data, goczmq.FlagMore)
+		case sender := <-ackCh:
+			sock.SendFrame(sender, goczmq.FlagMore)
 			sock.SendFrame([]byte("OK"), goczmq.FlagNone)
 		}
 	}
