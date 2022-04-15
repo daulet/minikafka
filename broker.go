@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/zeromq/goczmq"
@@ -49,6 +50,15 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 }
 
 func (b *Broker) Run(ctx context.Context) {
+	var wg sync.WaitGroup
+	msgCh := make(chan [][]byte)
+	ackCh := make(chan []byte)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b.write(ctx, msgCh, ackCh)
+	}()
 
 	router, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.port))
 	if err != nil {
@@ -56,22 +66,22 @@ func (b *Broker) Run(ctx context.Context) {
 	}
 	defer router.Destroy()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		go b.acknowlege(ctx, router, ackCh)
+	}()
+
 	poller, err := goczmq.NewPoller(router)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer poller.Destroy()
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0660)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
 	for {
 		select {
 		case <-ctx.Done():
+			wg.Wait()
 			return
 		default:
 		}
@@ -81,23 +91,51 @@ func (b *Broker) Run(ctx context.Context) {
 			continue
 		}
 
-		reqData, err := socket.RecvMessage()
+		msg, err := socket.RecvMessage()
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("received %v from %v", reqData[1], reqData[0])
+		log.Printf("received %v from %v", msg[1], msg[0])
 
-		err = router.SendFrame(reqData[0], goczmq.FlagMore)
-		if err != nil {
-			continue
-		}
+		msgCh <- msg
+	}
+}
 
-		_, err = w.Write(reqData[1])
-		if err != nil {
-			router.SendFrame([]byte("error"), goczmq.FlagNone)
-			continue
+func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- []byte) {
+	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0660)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+
+	for {
+		select {
+		case <-ctx.Done():
+			w.Flush()
+			return
+		case data := <-msgCh:
+			// data[0] is the sender, data[1] is the message
+			_, err := w.Write(data[1])
+			if err != nil {
+				continue
+			}
+			w.Flush()
+
+			ackCh <- data[0]
 		}
-		w.Flush()
-		router.SendFrame([]byte("OK"), goczmq.FlagNone)
+	}
+}
+
+func (b *Broker) acknowlege(ctx context.Context, sock *goczmq.Sock, ackCh <-chan []byte) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case data := <-ackCh:
+			sock.SendFrame(data, goczmq.FlagMore)
+			sock.SendFrame([]byte("OK"), goczmq.FlagNone)
+		}
 	}
 }
