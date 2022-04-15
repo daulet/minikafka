@@ -2,9 +2,11 @@ package minikafka
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/zeromq/goczmq"
 )
@@ -13,8 +15,9 @@ import (
 	Broker process is to be booted on each node of deployment.
 */
 type Broker struct {
-	port       int
-	storageDir string
+	port           int
+	storageDir     string
+	pollingTimeout time.Duration
 }
 
 type BrokerConfig func(b *Broker)
@@ -31,6 +34,12 @@ func BrokerStoreaDir(dir string) BrokerConfig {
 	}
 }
 
+func BrokerPollingTimeout(timeout time.Duration) BrokerConfig {
+	return func(b *Broker) {
+		b.pollingTimeout = timeout
+	}
+}
+
 func NewBroker(opts ...BrokerConfig) *Broker {
 	b := &Broker{}
 	for _, opt := range opts {
@@ -39,20 +48,40 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 	return b
 }
 
-func (b *Broker) Run() {
+func (b *Broker) Run(ctx context.Context) {
+
 	router, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.port))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer router.Destroy()
 
+	poller, err := goczmq.NewPoller(router)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer poller.Destroy()
+
 	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
+
 	w := bufio.NewWriter(f)
 	for {
-		reqData, err := router.RecvMessage()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		socket := poller.Wait(int(b.pollingTimeout / time.Millisecond))
+		if socket == nil {
+			continue
+		}
+
+		reqData, err := socket.RecvMessage()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -68,6 +97,7 @@ func (b *Broker) Run() {
 			router.SendFrame([]byte("error"), goczmq.FlagNone)
 			continue
 		}
+		w.Flush()
 		router.SendFrame([]byte("OK"), goczmq.FlagNone)
 	}
 }
