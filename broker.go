@@ -88,6 +88,16 @@ func (b *Broker) Run(ctx context.Context) {
 		go b.acknowlege(ctx, router, ackCh)
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b.poll(ctx, router, msgCh)
+	}()
+
+	wg.Wait()
+}
+
+func (b *Broker) poll(ctx context.Context, router *goczmq.Sock, msgCh chan<- [][]byte) {
 	poller, err := goczmq.NewPoller(router)
 	if err != nil {
 		log.Fatal(err)
@@ -97,7 +107,6 @@ func (b *Broker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			wg.Wait()
 			return
 		default:
 		}
