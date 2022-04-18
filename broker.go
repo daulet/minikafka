@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -99,6 +100,21 @@ func (b *Broker) Run(ctx context.Context) {
 		}()
 	}
 
+	// listen for subscribers, publish
+	{
+		lstr, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", b.subPort))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer lstr.Close()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.serveSubs(ctx, lstr.(*net.TCPListener))
+		}()
+	}
+
 	wg.Wait()
 }
 
@@ -148,7 +164,8 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- 
 			return
 		case data := <-msgCh:
 			// data[0] is the sender, data[1] is the message
-			_, err := w.Write(data[1])
+			msg := append(data[1], byte('\n'))
+			_, err := w.Write(msg)
 			if err != nil {
 				// TODO send a nack
 				continue
@@ -160,7 +177,38 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- 
 	}
 }
 
-func (b *Broker) publish(ctx context.Context) {
+func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener) {
+	var wg sync.WaitGroup
+	for {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		default:
+		}
+
+		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
+		conn, err := lstr.Accept()
+		if err != nil {
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
+			if err == io.EOF {
+				break
+			}
+			log.Fatal(err)
+		}
+		defer conn.Close()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.publish(ctx, conn)
+		}()
+	}
+}
+
+func (b *Broker) publish(ctx context.Context, conn net.Conn) {
 	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDONLY, 0660)
 	if err != nil {
 		log.Fatal(err)
@@ -176,7 +224,7 @@ func (b *Broker) publish(ctx context.Context) {
 		}
 
 		f.Seek(offset, 0)
-		n, err := io.Copy(os.Stdout, f)
+		n, err := io.Copy(conn, f)
 		if err != nil {
 			log.Fatal(err)
 		}
