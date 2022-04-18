@@ -1,0 +1,35 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lines:
+    name: Less than 500 lines
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install SLOCCount
+      run: go get -u github.com/hhatto/gocloc/cmd/gocloc
+    - name: Check <500 lines
+      run: if [ $(gocloc --not-match=test.go --not-match-d="proxy|test" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}') -gt 500 ]; then exit 1; fi
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
