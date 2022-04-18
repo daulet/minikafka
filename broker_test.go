@@ -101,17 +101,22 @@ func TestAllPublished(t *testing.T) {
 		}()
 	}
 
-	// subscribe to broker
-	{
-		<-time.After(100 * time.Millisecond)
+	// multiple subscribers to broker
+	<-time.After(100 * time.Millisecond)
+	for i := 0; i < 3; i++ {
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", subPort))
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer conn.Close()
 
+		m := make(map[string]struct{})
+		for k, s := range expectedMap {
+			m[k] = s
+		}
+
 		wg.Add(1)
-		go func() {
+		go func(expectedMap map[string]struct{}) {
 			defer wg.Done()
 			bytes := make([]byte, 1024)
 
@@ -134,7 +139,7 @@ func TestAllPublished(t *testing.T) {
 			for msg := range expectedMap {
 				t.Errorf("expected message not received: %s", msg)
 			}
-		}()
+		}(m)
 	}
 
 	dealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort))
