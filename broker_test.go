@@ -20,11 +20,13 @@ func TestWritesAreAcked(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
-	port := 5555
+	pubPort := 5555
+	subPort := 5556
 	count := 10
 
 	broker := minikafka.NewBroker(
-		minikafka.BrokerPort(port),
+		minikafka.BrokerPublishPort(pubPort),
+		minikafka.BrokerSubscribePort(subPort),
 		minikafka.BrokerStoreaDir(os.TempDir()),
 		minikafka.BrokerPollingTimeout(100*time.Millisecond),
 	)
@@ -35,7 +37,7 @@ func TestWritesAreAcked(t *testing.T) {
 		broker.Run(ctx)
 	}()
 
-	dealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", port))
+	dealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort))
 	if err != nil {
 		log.Fatal(err)
 	}

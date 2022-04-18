@@ -17,16 +17,23 @@ import (
 	Broker process is to be booted on each node of deployment.
 */
 type Broker struct {
-	port           int
+	pubPort        int
+	subPort        int
 	storageDir     string
 	pollingTimeout time.Duration
 }
 
 type BrokerConfig func(b *Broker)
 
-func BrokerPort(port int) BrokerConfig {
+func BrokerPublishPort(port int) BrokerConfig {
 	return func(b *Broker) {
-		b.port = port
+		b.pubPort = port
+	}
+}
+
+func BrokerSubscribePort(port int) BrokerConfig {
+	return func(b *Broker) {
+		b.subPort = port
 	}
 }
 
@@ -52,8 +59,6 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 
 func (b *Broker) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	msgCh := make(chan [][]byte)
-	ackCh := make(chan []byte)
 
 	// ensure storage file exists
 	{
@@ -64,35 +69,35 @@ func (b *Broker) Run(ctx context.Context) {
 		logFile.Close()
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b.write(ctx, msgCh, ackCh)
-	}()
+	// listen for publishers, persist, acknowledge
+	{
+		msgCh := make(chan [][]byte)
+		ackCh := make(chan []byte)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b.publish(ctx)
-	}()
+		pubRouter, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.pubPort))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer pubRouter.Destroy()
 
-	router, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.port))
-	if err != nil {
-		log.Fatal(err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.write(ctx, msgCh, ackCh)
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			go b.acknowlege(ctx, pubRouter, ackCh)
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.poll(ctx, pubRouter, msgCh)
+		}()
 	}
-	defer router.Destroy()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		go b.acknowlege(ctx, router, ackCh)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b.poll(ctx, router, msgCh)
-	}()
 
 	wg.Wait()
 }
