@@ -14,10 +14,8 @@ import (
 	"time"
 
 	"github.com/daulet/minikafka"
-	"github.com/zeromq/goczmq"
 )
 
-// TODO implement publisher that abstracts away zmq and wait on receive to ack
 // TODO publisher should timeout on ack, broker won't send a nack in all cases
 // TODO if publisher is concurrent, how does it distinguish acks from different goroutines? - update test accordingly
 func TestWritesAreAcked(t *testing.T) {
@@ -41,24 +39,18 @@ func TestWritesAreAcked(t *testing.T) {
 		broker.Run(ctx)
 	}()
 
-	dealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort))
+	pub, err := minikafka.NewPublisher(
+		minikafka.PublisherBrokerAddress(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort)),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer dealer.Destroy()
+	defer pub.Close()
 
 	for i := 0; i < count; i++ {
-		err = dealer.SendFrame([]byte("Hello"), goczmq.FlagNone)
+		err = pub.Publish(ctx, "", []byte("Hello"))
 		if err != nil {
-			t.Fatalf("error sending frame: %v", err)
-		}
-		// wait for ack, there is no way to distinguish between acks for different messages
-		reply, err := dealer.RecvMessage()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if string(reply[0]) != "OK" {
-			t.Fatalf("expected OK, got %s", reply[0])
+			t.Fatalf("error publishing message: %v", err)
 		}
 	}
 
@@ -142,24 +134,18 @@ func TestAllPublished(t *testing.T) {
 		}(m)
 	}
 
-	dealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort))
+	pub, err := minikafka.NewPublisher(
+		minikafka.PublisherBrokerAddress(fmt.Sprintf("tcp://127.0.0.1:%d", pubPort)),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer dealer.Destroy()
+	defer pub.Close()
 
 	for i := 0; i < len(expected); i++ {
-		err = dealer.SendFrame([]byte(expected[i]), goczmq.FlagNone)
+		err = pub.Publish(ctx, "", []byte(expected[i]))
 		if err != nil {
-			t.Fatalf("error sending frame: %v", err)
-		}
-		// wait for ack, there is no way to distinguish between acks for different messages
-		reply, err := dealer.RecvMessage()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if string(reply[0]) != "OK" {
-			t.Fatalf("expected OK, got %s", reply[0])
+			t.Fatalf("error publishing message: %v", err)
 		}
 	}
 
