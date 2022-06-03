@@ -8,8 +8,8 @@ RUN apk add --no-cache bash ; \
     mv /app/kafka_2.13-3.2.0 /app/kafka ; \
     chmod +x /app/kafka/bin/* ;
 
-COPY ./start-kafka.sh /app/kafka
-RUN chmod +x /app/kafka/start-kafka.sh ;
+COPY ./*.sh /app/kafka/
+RUN chmod +x /app/kafka/*.sh ;
 
 WORKDIR /app/kafka
 

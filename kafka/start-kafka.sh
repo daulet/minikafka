@@ -1,5 +1,12 @@
 #!/bin/bash -e
 
+if [[ -z "$KAFKA_PORT" ]]; then
+    export KAFKA_PORT=9092
+fi
+
+./create-topics.sh &
+unset KAFKA_CREATE_TOPICS
+
 {
     IFS=$'\n'
     for VAR in $(env)
