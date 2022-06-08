@@ -13,10 +13,21 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+
     - name: Install SLOCCount
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
+
     - name: Check <500 lines
-      run: echo $GOPATH; if (( $(gocloc --not-match=test.go --not-match-d="bench" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}') -gt 500 )); then exit 1; fi
+      run: |
+        loc=$(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="bench" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}')
+        echo "Go LOC: ${loc}"
+        if [ $loc -gt 500 ];
+          then exit 1;
+        fi
       shell: bash
 
   build:
