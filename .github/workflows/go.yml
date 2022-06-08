@@ -30,7 +30,7 @@ jobs:
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
 
     - name: Check <500 lines
-      run: $GOROOT/bin/gocloc .
+      run: $GOPATH/bin/gocloc .
       shell: bash
 
   build:
