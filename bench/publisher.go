@@ -22,6 +22,7 @@ func main() {
 		wg  sync.WaitGroup
 	)
 
+	// TODO see what other configs are useful: https://kafka.apache.org/documentation/#brokerconfigs
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": os.Args[1]})
 	if err != nil {
 		panic(err)

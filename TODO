@@ -1,13 +1,17 @@
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
+Migrate from zmq to capnproto: https://github.com/capnproto/go-capnproto2/wiki/Getting-Started#compiling-schema-files
+OR maybe replace with len+gob(message) with buffer to output complete messages only
+
 bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test
 
 setup benchmark, start with kafka, use toxiproxy to simulate latency across brokers
 
+migrate tests to docker
+
 pick features to support from here: https://medium.com/swlh/why-kafka-is-so-fast-bde0d987cd03
 
-go line counting action is not working, silentlyy failing
 test that broker.log is appended, not replaced
 publisher test fails if we don't listen for ack in test
 
