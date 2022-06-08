@@ -90,7 +90,7 @@ func (b *Broker) Run(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			go b.acknowlege(ctx, pubRouter, ackCh)
+			b.acknowlege(ctx, pubRouter, ackCh)
 		}()
 
 		wg.Add(1)
