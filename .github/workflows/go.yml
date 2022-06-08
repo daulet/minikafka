@@ -30,7 +30,10 @@ jobs:
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
 
     - name: Check <500 lines
-      run: ${HOME}/go/bin/gocloc .
+      run: |
+        if [ $(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="bench" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}') -gt 500 ];
+          then exit 1;
+        fi
       shell: bash
 
   build:
