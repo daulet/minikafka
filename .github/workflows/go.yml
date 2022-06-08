@@ -16,9 +16,11 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: 1.17
+
     - name: Install SLOCCount
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
+
     - name: Check <500 lines
       run: echo "GOPATH: $GOPATH"
       shell: bash
