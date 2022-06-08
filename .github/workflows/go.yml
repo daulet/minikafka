@@ -16,7 +16,15 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.17
+        go-version: 1.18
+
+    - name: Debug
+      run: |
+        pwd
+        echo ${HOME}
+        echo ${GITHUB_WORKSPACE}
+        echo ${GOPATH}
+        echo ${GOROOT}
 
     - name: Install SLOCCount
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
