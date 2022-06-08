@@ -14,11 +14,12 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: Install SLOCCount
-      run: go get -u github.com/hhatto/gocloc/cmd/gocloc
+      run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
     - name: Check <500 lines
-      run: if [ $(gocloc --not-match=test.go --not-match-d="proxy|test" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}') -gt 500 ]; then exit 1; fi
+      run: if (( $(gocloc --not-match=test.go --not-match-d="bench" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}') -gt 500 )); then exit 1; fi
 
   build:
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
