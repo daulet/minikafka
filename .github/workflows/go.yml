@@ -18,14 +18,6 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Debug
-      run: |
-        pwd
-        echo ${HOME}
-        echo ${GITHUB_WORKSPACE}
-        echo ${GOPATH}
-        echo ${GOROOT}
-
     - name: Install SLOCCount
       run: go install github.com/hhatto/gocloc/cmd/gocloc@latest
 
