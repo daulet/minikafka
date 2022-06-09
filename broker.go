@@ -3,6 +3,7 @@ package minikafka
 import (
 	"bufio"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"log"
@@ -10,8 +11,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/zeromq/goczmq"
 )
 
 /*
@@ -72,31 +71,25 @@ func (b *Broker) Run(ctx context.Context) {
 
 	// listen for publishers, persist, acknowledge
 	{
-		msgCh := make(chan [][]byte)
-		ackCh := make(chan []byte)
+		msgCh := make(chan Message)
 
-		pubRouter, err := goczmq.NewRouter(fmt.Sprintf("tcp://*:%d", b.pubPort))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.write(ctx, msgCh)
+		}()
+
+		// TODO config broker IP
+		lstr, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", b.pubPort))
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer pubRouter.Destroy()
+		defer lstr.Close()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.write(ctx, msgCh, ackCh)
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			b.acknowlege(ctx, pubRouter, ackCh)
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			b.poll(ctx, pubRouter, msgCh)
+			b.poll(ctx, lstr.(*net.TCPListener), msgCh)
 		}()
 	}
 
@@ -118,36 +111,78 @@ func (b *Broker) Run(ctx context.Context) {
 	wg.Wait()
 }
 
-func (b *Broker) poll(ctx context.Context, router *goczmq.Sock, msgCh chan<- [][]byte) {
-	poller, err := goczmq.NewPoller(router)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer poller.Destroy()
-
+func (b *Broker) poll(ctx context.Context, lstr *net.TCPListener, msgCh chan<- Message) {
+	var wg sync.WaitGroup
+LOOP:
 	for {
+		select {
+		case <-ctx.Done():
+			break LOOP
+		default:
+		}
+
+		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
+		conn, err := lstr.Accept()
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			if err == io.EOF {
+				break LOOP
+			}
+			log.Fatalf("tcp.accept(): %v", err)
+		}
+		// handle will close the connection, avoid defer per conn in this function
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.handle(ctx, conn.(*net.TCPConn), msgCh)
+		}()
+	}
+	wg.Wait()
+}
+
+func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Message) {
+	defer conn.Close()
+	for {
+		// separately check for closed context is necessary in case of read timeout
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
 
-		socket := poller.Wait(int(b.pollingTimeout / time.Millisecond))
-		if socket == nil {
-			continue
-		}
-
-		msg, err := socket.RecvMessage()
+		conn.SetDeadline(time.Now().Add(b.pollingTimeout))
+		// TODO can this be reused - i.e. moved outsiede of the loop?
+		decoder := gob.NewDecoder(conn)
+		var msg Message
+		err := decoder.Decode(&msg)
 		if err != nil {
-			log.Fatal(err)
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			if err != io.EOF {
+				log.Printf("failed to decode message: %v\n", err)
+			}
+			return
 		}
-		log.Printf("received %v from %v", msg[1], msg[0])
 
-		msgCh <- msg
+		select {
+		// TODO decide if acks should be ordered, how does kafka do it?
+		case msgCh <- msg:
+			// TODO different timeout from polling?
+			conn.SetDeadline(time.Now().Add(b.pollingTimeout))
+			_, err := conn.Write([]byte("OK"))
+			if err != nil {
+				log.Printf("failed to ack message: %v\n", err)
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
-func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- []byte) {
+func (b *Broker) write(ctx context.Context, msgCh <-chan Message) {
 	// don't pass O_CREATE, file is ensured upstream, panic otherwise
 	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_APPEND, 0660)
 	if err != nil {
@@ -162,28 +197,26 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan [][]byte, ackCh chan<- 
 		case <-ctx.Done():
 			w.Flush()
 			return
-		case data := <-msgCh:
-			// data[0] is the sender, data[1] is the message
-			msg := append(data[1], byte('\n'))
-			_, err := w.Write(msg)
+		case msg := <-msgCh:
+			// TODO better tokenization
+			payload := append(msg.Payload, byte('\n'))
+			_, err := w.Write(payload)
 			if err != nil {
 				// TODO send a nack
 				continue
 			}
 			w.Flush()
-
-			ackCh <- data[0]
 		}
 	}
 }
 
 func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener) {
 	var wg sync.WaitGroup
+LOOP:
 	for {
 		select {
 		case <-ctx.Done():
-			wg.Wait()
-			return
+			break LOOP
 		default:
 		}
 
@@ -194,9 +227,9 @@ func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener) {
 				continue
 			}
 			if err == io.EOF {
-				break
+				break LOOP
 			}
-			log.Fatal(err)
+			log.Fatalf("tcp.accept(): %v", err)
 		}
 		defer conn.Close()
 
@@ -206,6 +239,7 @@ func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener) {
 			b.publish(ctx, conn)
 		}()
 	}
+	wg.Wait()
 }
 
 func (b *Broker) publish(ctx context.Context, conn net.Conn) {
@@ -229,17 +263,5 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn) {
 			log.Fatal(err)
 		}
 		offset += int64(n)
-	}
-}
-
-func (b *Broker) acknowlege(ctx context.Context, sock *goczmq.Sock, ackCh <-chan []byte) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case sender := <-ackCh:
-			sock.SendFrame(sender, goczmq.FlagMore)
-			sock.SendFrame([]byte("OK"), goczmq.FlagNone)
-		}
 	}
 }

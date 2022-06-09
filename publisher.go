@@ -2,14 +2,14 @@ package minikafka
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
-
-	"github.com/zeromq/goczmq"
+	"net"
 )
 
 type Publisher struct {
-	addr   string
-	dealer *goczmq.Sock
+	addr string
+	conn *net.TCPConn
 }
 
 type PublisherConfig func(p *Publisher)
@@ -26,32 +26,35 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 		opt(p)
 	}
 
-	dealer, err := goczmq.NewDealer(p.addr)
+	conn, err := net.Dial("tcp", p.addr)
 	if err != nil {
 		return nil, err
 	}
-	p.dealer = dealer
 
+	p.conn = conn.(*net.TCPConn)
 	return p, nil
 }
 
 func (p *Publisher) Publish(ctx context.Context, topic string, data []byte) error {
-	err := p.dealer.SendFrame(data, goczmq.FlagNone)
+	encoder := gob.NewEncoder(p.conn)
+	err := encoder.Encode(Message{Topic: topic, Payload: data})
 	if err != nil {
-		return fmt.Errorf("error sending frame: %v", err)
+		return fmt.Errorf("error publishing: %v", err)
 	}
+	buff := make([]byte, 1024)
 	// wait for ack, there is no way to distinguish between acks for different messages
-	reply, err := p.dealer.RecvMessage()
+	n, err := p.conn.Read(buff)
 	if err != nil {
 		return fmt.Errorf("error receiving message: %v", err)
 	}
-	if string(reply[0]) != "OK" {
-		return fmt.Errorf("received a NACK %s", reply[0])
+	buff = buff[:n]
+	if string(buff) != "OK" {
+		return fmt.Errorf("received a NACK %s", buff)
 	}
 	return nil
 }
 
 func (p *Publisher) Close() {
-	p.dealer.Destroy()
-	p.dealer = nil
+	p.conn.Close()
+	p.conn = nil
 }
