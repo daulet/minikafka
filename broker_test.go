@@ -1,11 +1,10 @@
 package minikafka_test
 
 import (
-	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
-	"net"
 	"os"
 	"sync"
 	"testing"
@@ -93,24 +92,31 @@ func TestAllPublished(t *testing.T) {
 	}
 
 	// multiple subscribers to broker
-	<-time.After(10 * time.Millisecond)
 	subCh := make(chan struct{}, subs)
 	for i := 0; i < subs; i++ {
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", subPort))
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer conn.Close()
-
 		m := make(map[string]struct{})
 		for k, s := range expectedMap {
 			m[k] = s
 		}
 
 		go func(expectedMap map[string]struct{}) {
-			scnr := bufio.NewScanner(bufio.NewReader(conn))
-			for scnr.Scan() {
-				msg := scnr.Text()
+			sub, err := minikafka.NewSubscriber(
+				minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer sub.Close()
+
+			for {
+				bytes, err := sub.Read()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					log.Fatal(err)
+				}
+				msg := string(bytes)
 				if _, ok := expectedMap[msg]; !ok {
 					t.Errorf("unexpected message received: %s", msg)
 					continue
