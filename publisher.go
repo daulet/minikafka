@@ -26,24 +26,10 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	for _, opt := range opts {
 		opt(p)
 	}
-	var (
-		conn    net.Conn
-		err     error
-		timeout = time.Millisecond
-	)
-	for timeout < time.Second {
-		conn, err = net.DialTimeout("tcp", p.addr, timeout)
-		if err != nil {
-			fmt.Printf("failed to dial with %v timeout, will retry\n", timeout)
-			timeout += timeout
-			continue
-		}
-		break
-	}
+	conn, err := dial("tcp", p.addr, time.Second)
 	if conn == nil {
-		return nil, fmt.Errorf("failed to dial after retries up to %v timeout: %v", timeout, err)
+		return nil, err
 	}
-
 	p.conn = conn.(*net.TCPConn)
 	return p, nil
 }

@@ -2,7 +2,6 @@ package minikafka
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"net"
 	"time"
@@ -27,24 +26,10 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 	for _, opt := range opts {
 		opt(s)
 	}
-	var (
-		conn    net.Conn
-		err     error
-		timeout = time.Millisecond
-	)
-	for timeout < time.Second {
-		conn, err = net.DialTimeout("tcp", s.addr, timeout)
-		if err != nil {
-			fmt.Printf("failed to dial with %v timeout, will retry\n", timeout)
-			timeout += timeout
-			continue
-		}
-		break
-	}
+	conn, err := dial("tcp", s.addr, time.Second)
 	if conn == nil {
-		return nil, fmt.Errorf("failed to dial after retries up to %v timeout: %v", timeout, err)
+		return nil, err
 	}
-
 	s.conn = conn.(*net.TCPConn)
 	s.scnr = bufio.NewScanner(conn)
 	return s, nil
