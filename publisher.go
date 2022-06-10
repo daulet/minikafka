@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
+	"time"
 )
 
 type Publisher struct {
@@ -25,9 +26,20 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	for _, opt := range opts {
 		opt(p)
 	}
-
-	conn, err := net.Dial("tcp", p.addr)
-	if err != nil {
+	var (
+		conn    net.Conn
+		err     error
+		timeout = time.Millisecond
+	)
+	for timeout < time.Second {
+		conn, err = net.DialTimeout("tcp", p.addr, timeout)
+		if err != nil {
+			timeout += timeout
+			continue
+		}
+		break
+	}
+	if conn == nil {
 		return nil, err
 	}
 

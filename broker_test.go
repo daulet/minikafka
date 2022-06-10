@@ -37,9 +37,6 @@ func TestWritesAreAcked(t *testing.T) {
 		broker.Run(ctx)
 	}()
 
-	// TODO move this to publisher?
-	<-time.After(100 * time.Millisecond)
-
 	pub, err := minikafka.NewPublisher(
 		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
 	)
