@@ -4,11 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -63,6 +61,7 @@ func TestWritesAreAcked(t *testing.T) {
 
 func TestAllPublished(t *testing.T) {
 	var wg sync.WaitGroup
+	subs := 3
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if err := os.Remove(fmt.Sprintf("%s/broker.log", os.TempDir())); err != nil {
@@ -97,8 +96,9 @@ func TestAllPublished(t *testing.T) {
 	}
 
 	// multiple subscribers to broker
-	<-time.After(100 * time.Millisecond)
-	for i := 0; i < 3; i++ {
+	<-time.After(10 * time.Millisecond)
+	subCh := make(chan struct{}, subs)
+	for i := 0; i < subs; i++ {
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", subPort))
 		if err != nil {
 			log.Fatal(err)
@@ -110,18 +110,8 @@ func TestAllPublished(t *testing.T) {
 			m[k] = s
 		}
 
-		wg.Add(1)
 		go func(expectedMap map[string]struct{}) {
-			defer wg.Done()
-			bytes := make([]byte, 1024)
-
-			bytes, err := io.ReadAll(bufio.NewReader(conn))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			raw := string(bytes)
-			scnr := bufio.NewScanner(strings.NewReader(raw))
+			scnr := bufio.NewScanner(bufio.NewReader(conn))
 			for scnr.Scan() {
 				msg := scnr.Text()
 				if _, ok := expectedMap[msg]; !ok {
@@ -129,11 +119,16 @@ func TestAllPublished(t *testing.T) {
 					continue
 				}
 				delete(expectedMap, msg)
+				if len(expectedMap) == 0 {
+					break
+				}
 			}
 
 			for msg := range expectedMap {
 				t.Errorf("expected message not received: %s", msg)
 			}
+
+			subCh <- struct{}{}
 		}(m)
 	}
 
@@ -149,6 +144,15 @@ func TestAllPublished(t *testing.T) {
 		err = pub.Publish(ctx, "", []byte(expected[i]))
 		if err != nil {
 			t.Fatalf("error publishing message: %v", err)
+		}
+	}
+	// subscribers exit when all expected messages are received
+	for i := 0; i < subs; i++ {
+		select {
+		case <-subCh:
+			continue
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for subscriber to receive all expected messages")
 		}
 	}
 
