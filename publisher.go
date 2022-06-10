@@ -34,13 +34,14 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	for timeout < time.Second {
 		conn, err = net.DialTimeout("tcp", p.addr, timeout)
 		if err != nil {
+			fmt.Printf("failed to dial with %v timeout, will retry", timeout)
 			timeout += timeout
 			continue
 		}
 		break
 	}
 	if conn == nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial after retries up to %v timeout: %v", timeout, err)
 	}
 
 	p.conn = conn.(*net.TCPConn)
