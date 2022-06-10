@@ -36,6 +36,8 @@ func TestWritesAreAcked(t *testing.T) {
 		broker.Run(ctx)
 	}()
 
+	// let the broker in goroutine chance to boot
+	<-time.After(time.Millisecond)
 	pub, err := minikafka.NewPublisher(
 		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
 	)
@@ -91,6 +93,8 @@ func TestAllPublished(t *testing.T) {
 		}()
 	}
 
+	// let the broker in goroutine chance to boot
+	<-time.After(10 * time.Millisecond)
 	// multiple subscribers to broker
 	subCh := make(chan struct{}, subs)
 	for i := 0; i < subs; i++ {
