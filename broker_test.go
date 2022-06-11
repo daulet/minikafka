@@ -13,6 +13,8 @@ import (
 	"github.com/daulet/minikafka"
 )
 
+const brokerBootDelay = 10 * time.Millisecond
+
 // TODO publisher should timeout on ack, broker won't send a nack in all cases
 // TODO if publisher is concurrent, how does it distinguish acks from different goroutines? - update test accordingly
 // TODO complement to above: multiple publishers, some failing, correct acks are received
@@ -38,7 +40,7 @@ func TestWritesAreAcked(t *testing.T) {
 	}()
 
 	// let the broker in goroutine chance to boot
-	<-time.After(time.Millisecond)
+	<-time.After(brokerBootDelay)
 	pub, err := minikafka.NewPublisher(
 		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
 	)
@@ -95,7 +97,7 @@ func TestAllPublished(t *testing.T) {
 	}
 
 	// let the broker in goroutine chance to boot
-	<-time.After(10 * time.Millisecond)
+	<-time.After(brokerBootDelay)
 	// multiple subscribers to broker
 	subCh := make(chan struct{}, subs)
 	for i := 0; i < subs; i++ {
