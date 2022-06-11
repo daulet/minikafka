@@ -5,7 +5,7 @@ import (
 	"encoding/gob"
 	"io"
 	"log"
-	"net"
+	"time"
 )
 
 type Message struct {
@@ -13,12 +13,22 @@ type Message struct {
 	Payload []byte
 }
 
+type Connection interface {
+	SetDeadline(t time.Time) error
+	Read(p []byte) (n int, err error)
+	Write(b []byte) (int, error)
+	Close() error
+}
+
 // MessageReader wraps a TCP stream to read/write valid Message.
-// TODO add a test to verify behavior breaking message across packets.
 // TODO later make it generic so user can specify the message type.
 type MessageReader struct {
-	net.TCPConn
+	conn   Connection
 	buffer []byte
+}
+
+func (r *MessageReader) SetDeadline(t time.Time) error {
+	return r.conn.SetDeadline(t)
 }
 
 func (r *MessageReader) Read() (*Message, error) {
@@ -48,15 +58,19 @@ func (r *MessageReader) Write(msg *Message) error {
 		return err
 	}
 	n := b.Len()
-	r.TCPConn.Write([]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
-	_, err = r.TCPConn.Write(b.Bytes())
+	r.conn.Write([]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
+	_, err = r.conn.Write(b.Bytes())
 	return err
+}
+
+func (r *MessageReader) Close() error {
+	return r.conn.Close()
 }
 
 func (r *MessageReader) readBytes(n int) ([]byte, error) {
 	if len(r.buffer) < n {
 		b := make([]byte, 15*1024) // 15KB is initial TCP packet size
-		m, err := io.ReadAtLeast(&r.TCPConn, b, n-len(r.buffer))
+		m, err := io.ReadAtLeast(r.conn, b, n-len(r.buffer))
 		if err != nil {
 			return nil, err
 		}
@@ -74,4 +88,14 @@ func (r *MessageReader) readBytes(n int) ([]byte, error) {
 		log.Fatalf("readBytes: actual (%v) < expected (%v)", ptr, n)
 	}
 	return buff, nil
+}
+
+func (r *MessageReader) writeBytes(b []byte) (int, error) {
+	return r.conn.Write(b)
+}
+
+func NewMessageReader(conn Connection) *MessageReader {
+	return &MessageReader{
+		conn: conn,
+	}
 }

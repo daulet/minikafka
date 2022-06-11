@@ -29,7 +29,7 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if conn == nil {
 		return nil, err
 	}
-	p.conn = &MessageReader{TCPConn: *conn.(*net.TCPConn)}
+	p.conn = &MessageReader{conn: conn.(*net.TCPConn)}
 	return p, nil
 }
 

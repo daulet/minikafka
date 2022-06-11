@@ -2,6 +2,7 @@ package minikafka
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -15,7 +16,7 @@ func dial(network, addr string, maxTimeout time.Duration) (net.Conn, error) {
 	for timeout < maxTimeout {
 		conn, err = net.DialTimeout(network, addr, timeout)
 		if err != nil {
-			fmt.Printf("dial %v: timeout after %v, will retry\n", addr, timeout)
+			log.Printf("dial %v: timeout after %v, will retry\n", addr, timeout)
 			timeout += timeout
 			continue
 		}

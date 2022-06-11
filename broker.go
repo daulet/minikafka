@@ -142,7 +142,7 @@ LOOP:
 }
 
 func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Message) {
-	reader := &MessageReader{TCPConn: *conn}
+	reader := NewMessageReader(conn)
 	defer reader.Close()
 	for {
 		// separately check for closed context is necessary in case of read timeout
@@ -169,7 +169,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 		case msgCh <- *msg:
 			// TODO different timeout from polling?
 			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-			_, err := conn.Write([]byte("OK")) // TODO make sure we can just call reader.Write()
+			_, err := reader.writeBytes([]byte("OK"))
 			if err != nil {
 				log.Printf("failed to ack message: %v\n", err)
 			}
