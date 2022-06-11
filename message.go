@@ -1,6 +1,77 @@
 package minikafka
 
+import (
+	"bytes"
+	"encoding/gob"
+	"io"
+	"log"
+	"net"
+)
+
 type Message struct {
 	Topic   string
 	Payload []byte
+}
+
+// MessageReader wraps a TCP stream to read/write valid Message.
+// TODO add a test to verify behavior breaking message across packets.
+// TODO later make it generic so user can specify the message type.
+type MessageReader struct {
+	net.TCPConn
+	buffer []byte
+}
+
+func (r *MessageReader) Read() (*Message, error) {
+	b, err := r.readBytes(4)
+	if err != nil {
+		return nil, err
+	}
+	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	b, err = r.readBytes(n)
+	if err != nil {
+		return nil, err
+	}
+	var msg Message
+	dec := gob.NewDecoder(bytes.NewReader(b))
+	err = dec.Decode(&msg)
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (r *MessageReader) Write(msg *Message) error {
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	err := enc.Encode(msg)
+	if err != nil {
+		return err
+	}
+	n := b.Len()
+	r.TCPConn.Write([]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
+	_, err = r.TCPConn.Write(b.Bytes())
+	return err
+}
+
+func (r *MessageReader) readBytes(n int) ([]byte, error) {
+	if len(r.buffer) < n {
+		b := make([]byte, 15*1024) // 15KB is initial TCP packet size
+		m, err := io.ReadAtLeast(&r.TCPConn, b, n-len(r.buffer))
+		if err != nil {
+			return nil, err
+		}
+		r.buffer = append(r.buffer, b[:m]...)
+	}
+
+	buff, ptr := make([]byte, n), 0
+	for ptr < n && ptr < len(r.buffer) {
+		buff[ptr] = r.buffer[ptr]
+		ptr++
+	}
+	r.buffer = r.buffer[ptr:]
+
+	if ptr < n {
+		log.Fatalf("readBytes: actual (%v) < expected (%v)", ptr, n)
+	}
+	return buff, nil
 }

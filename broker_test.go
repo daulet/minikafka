@@ -15,6 +15,7 @@ import (
 
 // TODO publisher should timeout on ack, broker won't send a nack in all cases
 // TODO if publisher is concurrent, how does it distinguish acks from different goroutines? - update test accordingly
+// TODO complement to above: multiple publishers, some failing, correct acks are received
 func TestWritesAreAcked(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup

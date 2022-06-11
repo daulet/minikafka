@@ -2,7 +2,6 @@ package minikafka
 
 import (
 	"context"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"time"
@@ -10,7 +9,7 @@ import (
 
 type Publisher struct {
 	addr string
-	conn *net.TCPConn
+	conn *MessageReader
 }
 
 type PublisherConfig func(p *Publisher)
@@ -30,23 +29,21 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if conn == nil {
 		return nil, err
 	}
-	p.conn = conn.(*net.TCPConn)
+	p.conn = &MessageReader{TCPConn: *conn.(*net.TCPConn)}
 	return p, nil
 }
 
 func (p *Publisher) Publish(ctx context.Context, topic string, data []byte) error {
-	encoder := gob.NewEncoder(p.conn)
-	err := encoder.Encode(Message{Topic: topic, Payload: data})
+	msg := &Message{Topic: topic, Payload: data}
+	err := p.conn.Write(msg)
 	if err != nil {
-		return fmt.Errorf("error publishing: %v", err)
+		return fmt.Errorf("error writing message: %v", err)
 	}
-	buff := make([]byte, 1024)
 	// wait for ack, there is no way to distinguish between acks for different messages
-	n, err := p.conn.Read(buff)
+	buff, err := p.conn.readBytes(2)
 	if err != nil {
-		return fmt.Errorf("error receiving message: %v", err)
+		return fmt.Errorf("error reading response: %v", err)
 	}
-	buff = buff[:n]
 	if string(buff) != "OK" {
 		return fmt.Errorf("received a NACK %s", buff)
 	}

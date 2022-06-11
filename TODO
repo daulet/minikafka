@@ -1,8 +1,13 @@
+should we store in the same format - len+gob(message)? then update Subscriber to read the format as well
+add a test exercising encoder/decoder partitioning across packets
+later add a test where message contains /n to test we don't still use it
+
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
-Migrate from zmq to capnproto: https://github.com/capnproto/go-capnproto2/wiki/Getting-Started#compiling-schema-files
-OR maybe replace with len+gob(message) with buffer to output complete messages only
+Multiple broker support with all ack
+
+Publisher and Subscriber should implement Writer and Reader interface respectively
 
 bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test
 

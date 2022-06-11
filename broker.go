@@ -3,7 +3,6 @@ package minikafka
 import (
 	"bufio"
 	"context"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"log"
@@ -143,7 +142,8 @@ LOOP:
 }
 
 func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Message) {
-	defer conn.Close()
+	reader := &MessageReader{TCPConn: *conn}
+	defer reader.Close()
 	for {
 		// separately check for closed context is necessary in case of read timeout
 		select {
@@ -152,11 +152,8 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 		default:
 		}
 
-		conn.SetDeadline(time.Now().Add(b.pollingTimeout))
-		// TODO can this be reused - i.e. moved outsiede of the loop?
-		decoder := gob.NewDecoder(conn)
-		var msg Message
-		err := decoder.Decode(&msg)
+		reader.SetDeadline(time.Now().Add(b.pollingTimeout))
+		msg, err := reader.Read()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
@@ -169,10 +166,10 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 
 		select {
 		// TODO decide if acks should be ordered, how does kafka do it?
-		case msgCh <- msg:
+		case msgCh <- *msg:
 			// TODO different timeout from polling?
-			conn.SetDeadline(time.Now().Add(b.pollingTimeout))
-			_, err := conn.Write([]byte("OK"))
+			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
+			_, err := conn.Write([]byte("OK")) // TODO make sure we can just call reader.Write()
 			if err != nil {
 				log.Printf("failed to ack message: %v\n", err)
 			}
