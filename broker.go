@@ -257,7 +257,8 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn) {
 		f.Seek(offset, 0)
 		n, err := io.Copy(conn, f)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("publish: write failed with %v", err)
+			break
 		}
 		offset += int64(n)
 	}
