@@ -7,9 +7,10 @@ import (
 )
 
 type Publisher struct {
-	addr string
-	conn *MessageReader
-	reqs chan *request
+	addr  string
+	conn  *MessageReader
+	reqs  chan *request
+	resps chan chan<- error
 }
 
 type request struct {
@@ -35,8 +36,9 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 		return nil, err
 	}
 	p.conn = &MessageReader{conn: conn.(*net.TCPConn)}
+
 	p.reqs = make(chan *request, 1000)
-	// TODO decouple reading from writing so we can publish as fast as we can
+	p.resps = make(chan chan<- error, 1000)
 	go func() {
 		for req := range p.reqs {
 			err := p.conn.Write(req.msg)
@@ -44,17 +46,22 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 				req.resp <- fmt.Errorf("error writing message: %v", err)
 				continue
 			}
+			p.resps <- req.resp
+		}
+	}()
+	go func() {
+		for resp := range p.resps {
 			// wait for ack, there is no way to distinguish between acks for different messages
 			buff, err := p.conn.readBytes(2)
 			if err != nil {
-				req.resp <- fmt.Errorf("error reading response: %v", err)
+				resp <- fmt.Errorf("error reading response: %v", err)
 				continue
 			}
 			if string(buff) != "OK" {
-				req.resp <- fmt.Errorf("received a NACK %s", buff)
+				resp <- fmt.Errorf("received a NACK %s", buff)
 				continue
 			}
-			req.resp <- nil
+			resp <- nil
 		}
 	}()
 	return p, nil
@@ -74,4 +81,5 @@ func (p *Publisher) Close() {
 	p.conn.Close()
 	p.conn = nil
 	close(p.reqs)
+	close(p.resps)
 }

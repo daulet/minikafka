@@ -47,7 +47,7 @@ func TestWritesAreAcked(t *testing.T) {
 	}
 	defer pub.Close()
 
-	published := make(chan struct{})
+	published := make(chan struct{}, count)
 	for i := 0; i < count; i++ {
 		go func() {
 			err := pub.Publish("", []byte("Hello"))

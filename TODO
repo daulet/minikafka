@@ -5,6 +5,8 @@ Add latency test to verify write/read decoupling in publisher: write shouldn't t
 
 Multiple broker support with all ack
 
+use toxyproxy slicer to test message parsing: https://github.com/Shopify/toxiproxy#slicer
+
 Publisher and Subscriber should implement Writer and Reader interface respectively
 
 bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test

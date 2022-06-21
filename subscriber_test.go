@@ -75,11 +75,18 @@ func TestFailedSubscriber(t *testing.T) {
 	}
 	defer pub.Close()
 
+	published := make(chan struct{}, messageCount)
 	for i := 0; i < messageCount; i++ {
-		err = pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
-		if err != nil {
-			t.Fatalf("error publishing message: %v", err)
-		}
+		go func(i int) {
+			err := pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
+			if err != nil {
+				t.Errorf("error publishing message: %v", err)
+			}
+			published <- struct{}{}
+		}(i)
+	}
+	for i := 0; i < messageCount; i++ {
+		<-published
 	}
 
 	select {
