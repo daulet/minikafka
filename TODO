@@ -1,6 +1,8 @@
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
+Add latency test to verify write/read decoupling in publisher: write shouldn't take ~= latency
+
 Multiple broker support with all ack
 
 Publisher and Subscriber should implement Writer and Reader interface respectively
