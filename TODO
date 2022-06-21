@@ -1,7 +1,3 @@
-should we store in the same format - len+gob(message)? then update Subscriber to read the format as well
-add a test exercising encoder/decoder partitioning across packets
-later add a test where message contains /n to test we don't still use it
-
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 

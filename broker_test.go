@@ -76,7 +76,7 @@ func TestAllPublished(t *testing.T) {
 		expectedMap = make(map[string]struct{})
 	)
 	for i := 0; i < 10; i++ {
-		expected = append(expected, fmt.Sprintf("Hello %d", i))
+		expected = append(expected, fmt.Sprintf("Hello\n%d", i))
 		expectedMap[expected[i]] = struct{}{}
 	}
 

@@ -70,7 +70,7 @@ func (b *Broker) Run(ctx context.Context) {
 
 	// listen for publishers, persist, acknowledge
 	{
-		msgCh := make(chan Message)
+		msgCh := make(chan []byte)
 
 		wg.Add(1)
 		go func() {
@@ -110,7 +110,7 @@ func (b *Broker) Run(ctx context.Context) {
 	wg.Wait()
 }
 
-func (b *Broker) poll(ctx context.Context, lstr *net.TCPListener, msgCh chan<- Message) {
+func (b *Broker) poll(ctx context.Context, lstr *net.TCPListener, msgCh chan<- []byte) {
 	var wg sync.WaitGroup
 LOOP:
 	for {
@@ -141,7 +141,7 @@ LOOP:
 	wg.Wait()
 }
 
-func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Message) {
+func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []byte) {
 	reader := NewMessageReader(conn)
 	defer reader.Close()
 	for {
@@ -153,7 +153,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 		}
 
 		reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-		msg, err := reader.Read()
+		_, raw, err := reader.Read()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
@@ -166,7 +166,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 
 		select {
 		// TODO decide if acks should be ordered, how does kafka do it?
-		case msgCh <- *msg:
+		case msgCh <- raw:
 			// TODO different timeout from polling?
 			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 			_, err := reader.writeBytes([]byte("OK"))
@@ -179,7 +179,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- Mes
 	}
 }
 
-func (b *Broker) write(ctx context.Context, msgCh <-chan Message) {
+func (b *Broker) write(ctx context.Context, msgCh <-chan []byte) {
 	// don't pass O_CREATE, file is ensured upstream, panic otherwise
 	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_APPEND, 0660)
 	if err != nil {
@@ -195,9 +195,7 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan Message) {
 			w.Flush()
 			return
 		case msg := <-msgCh:
-			// TODO better tokenization
-			payload := append(msg.Payload, byte('\n'))
-			_, err := w.Write(payload)
+			_, err := w.Write(msg)
 			if err != nil {
 				// TODO send a nack
 				continue

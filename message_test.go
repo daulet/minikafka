@@ -73,7 +73,7 @@ func TestPacketPartitioning(t *testing.T) {
 		},
 	)
 	{
-		msg, err := r.Read()
+		msg, _, err := r.Read()
 		if err != nil {
 			t.Fatal(err)
 		}

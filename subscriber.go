@@ -1,8 +1,6 @@
 package minikafka
 
 import (
-	"bufio"
-	"io"
 	"net"
 	"time"
 )
@@ -10,7 +8,7 @@ import (
 type Subscriber struct {
 	addr string
 	conn *net.TCPConn
-	scnr *bufio.Scanner
+	rdr  *MessageReader
 }
 
 type SubscriberConfig func(p *Subscriber)
@@ -31,15 +29,16 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 		return nil, err
 	}
 	s.conn = conn.(*net.TCPConn)
-	s.scnr = bufio.NewScanner(conn)
+	s.rdr = NewMessageReader(s.conn)
 	return s, nil
 }
 
 func (s *Subscriber) Read() ([]byte, error) {
-	if !s.scnr.Scan() {
-		return nil, io.EOF
+	msg, _, err := s.rdr.Read()
+	if err != nil {
+		return nil, err
 	}
-	return s.scnr.Bytes(), nil
+	return msg.Payload, nil
 }
 
 func (s *Subscriber) Close() {
