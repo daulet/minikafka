@@ -34,7 +34,7 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 }
 
 func (s *Subscriber) Read() ([]byte, error) {
-	msg, _, err := s.rdr.Read()
+	msg, err := s.rdr.Read()
 	if err != nil {
 		return nil, err
 	}

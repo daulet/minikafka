@@ -31,26 +31,38 @@ func (r *MessageReader) SetDeadline(t time.Time) error {
 	return r.conn.SetDeadline(t)
 }
 
-// TODO split out to a separate ReadRaw method to avoid decoding
-func (r *MessageReader) Read() (*Message, []byte, error) {
+func (r *MessageReader) Read() (*Message, error) {
 	b, err := r.readBytes(4)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	b, err = r.readBytes(n)
+	if err != nil {
+		return nil, err
+	}
+	var msg Message
+	dec := gob.NewDecoder(bytes.NewReader(b))
+	err = dec.Decode(&msg)
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (r *MessageReader) ReadRaw() ([]byte, error) {
+	b, err := r.readBytes(4)
+	if err != nil {
+		return nil, err
 	}
 	raw := b
 	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
 	b, err = r.readBytes(n)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	raw = append(raw, b...)
-	var msg Message
-	dec := gob.NewDecoder(bytes.NewReader(b))
-	err = dec.Decode(&msg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &msg, raw, nil
+	return raw, nil
 }
 
 func (r *MessageReader) Write(msg *Message) error {

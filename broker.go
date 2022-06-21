@@ -153,7 +153,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []b
 		}
 
 		reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-		_, raw, err := reader.Read()
+		raw, err := reader.ReadRaw()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
