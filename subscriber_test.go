@@ -76,7 +76,7 @@ func TestFailedSubscriber(t *testing.T) {
 	defer pub.Close()
 
 	for i := 0; i < messageCount; i++ {
-		err = pub.Publish(ctx, "", []byte(fmt.Sprintf("Hello %d", i)))
+		err = pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
 		if err != nil {
 			t.Fatalf("error publishing message: %v", err)
 		}

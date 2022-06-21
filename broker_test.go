@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -16,8 +15,7 @@ import (
 const brokerBootDelay = 10 * time.Millisecond
 
 // TODO publisher should timeout on ack, broker won't send a nack in all cases
-// TODO if publisher is concurrent, how does it distinguish acks from different goroutines? - update test accordingly
-// TODO complement to above: multiple publishers, some failing, correct acks are received
+// TODO test for mix of succeeding and failing publishers, correct acks are received
 func TestWritesAreAcked(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -45,16 +43,24 @@ func TestWritesAreAcked(t *testing.T) {
 		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
 	)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer pub.Close()
 
+	published := make(chan struct{})
 	for i := 0; i < count; i++ {
-		err = pub.Publish(ctx, "", []byte("Hello"))
-		if err != nil {
-			t.Fatalf("error publishing message: %v", err)
-		}
+		go func() {
+			err := pub.Publish("", []byte("Hello"))
+			if err != nil {
+				t.Errorf("error publishing message: %v", err)
+			}
+			published <- struct{}{}
+		}()
 	}
+	for i := 0; i < count; i++ {
+		<-published
+	}
+	close(published)
 
 	cancel()
 	wg.Wait()
@@ -66,7 +72,7 @@ func TestAllPublished(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if err := os.Remove(fmt.Sprintf("%s/broker.log", os.TempDir())); err != nil {
-		log.Println(err)
+		t.Fatal(err)
 	}
 
 	var (
@@ -111,7 +117,8 @@ func TestAllPublished(t *testing.T) {
 				minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
 			)
 			if err != nil {
-				log.Fatal(err)
+				t.Error(err)
+				return
 			}
 			defer sub.Close()
 
@@ -121,7 +128,8 @@ func TestAllPublished(t *testing.T) {
 					if err == io.EOF {
 						break
 					}
-					log.Fatal(err)
+					t.Error(err)
+					return
 				}
 				msg := string(bytes)
 				if _, ok := expectedMap[msg]; !ok {
@@ -146,15 +154,17 @@ func TestAllPublished(t *testing.T) {
 		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
 	)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer pub.Close()
 
 	for i := 0; i < len(expected); i++ {
-		err = pub.Publish(ctx, "", []byte(expected[i]))
-		if err != nil {
-			t.Fatalf("error publishing message: %v", err)
-		}
+		go func(s string) {
+			err := pub.Publish("", []byte(s))
+			if err != nil {
+				t.Errorf("error publishing message: %v", err)
+			}
+		}(expected[i])
 	}
 	// subscribers exit when all expected messages are received
 	for i := 0; i < subs; i++ {
