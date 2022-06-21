@@ -36,32 +36,32 @@ func TestWritesAreAcked(t *testing.T) {
 		defer wg.Done()
 		broker.Run(ctx)
 	}()
+	{
+		// let the broker in goroutine chance to boot
+		<-time.After(brokerBootDelay)
+		pub, err := minikafka.NewPublisher(
+			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer pub.Close()
 
-	// let the broker in goroutine chance to boot
-	<-time.After(brokerBootDelay)
-	pub, err := minikafka.NewPublisher(
-		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-	)
-	if err != nil {
-		t.Fatal(err)
+		published := make(chan struct{}, count)
+		for i := 0; i < count; i++ {
+			go func() {
+				err := pub.Publish("", []byte("Hello"))
+				if err != nil {
+					t.Errorf("error publishing message: %v", err)
+				}
+				published <- struct{}{}
+			}()
+		}
+		for i := 0; i < count; i++ {
+			<-published
+		}
+		close(published)
 	}
-	defer pub.Close()
-
-	published := make(chan struct{}, count)
-	for i := 0; i < count; i++ {
-		go func() {
-			err := pub.Publish("", []byte("Hello"))
-			if err != nil {
-				t.Errorf("error publishing message: %v", err)
-			}
-			published <- struct{}{}
-		}()
-	}
-	for i := 0; i < count; i++ {
-		<-published
-	}
-	close(published)
-
 	cancel()
 	wg.Wait()
 }
@@ -149,22 +149,29 @@ func TestAllPublished(t *testing.T) {
 			subCh <- struct{}{}
 		}(m)
 	}
+	{
+		pub, err := minikafka.NewPublisher(
+			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer pub.Close()
 
-	pub, err := minikafka.NewPublisher(
-		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pub.Close()
-
-	for i := 0; i < len(expected); i++ {
-		go func(s string) {
-			err := pub.Publish("", []byte(s))
-			if err != nil {
-				t.Errorf("error publishing message: %v", err)
-			}
-		}(expected[i])
+		published := make(chan struct{}, len(expected))
+		for i := 0; i < len(expected); i++ {
+			go func(s string) {
+				err := pub.Publish("", []byte(s))
+				if err != nil {
+					t.Errorf("error publishing message: %v", err)
+				}
+				published <- struct{}{}
+			}(expected[i])
+		}
+		for i := 0; i < len(expected); i++ {
+			<-published
+		}
+		close(published)
 	}
 	// subscribers exit when all expected messages are received
 	for i := 0; i < subs; i++ {

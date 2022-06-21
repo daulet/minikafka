@@ -66,29 +66,30 @@ func TestFailedSubscriber(t *testing.T) {
 
 		subCh <- struct{}{}
 	}()
+	{
+		pub, err := minikafka.NewPublisher(
+			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer pub.Close()
 
-	pub, err := minikafka.NewPublisher(
-		minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-	)
-	if err != nil {
-		log.Fatal(err)
+		published := make(chan struct{}, messageCount)
+		for i := 0; i < messageCount; i++ {
+			go func(i int) {
+				err := pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
+				if err != nil {
+					t.Errorf("error publishing message: %v", err)
+				}
+				published <- struct{}{}
+			}(i)
+		}
+		for i := 0; i < messageCount; i++ {
+			<-published
+		}
+		close(published)
 	}
-	defer pub.Close()
-
-	published := make(chan struct{}, messageCount)
-	for i := 0; i < messageCount; i++ {
-		go func(i int) {
-			err := pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
-			if err != nil {
-				t.Errorf("error publishing message: %v", err)
-			}
-			published <- struct{}{}
-		}(i)
-	}
-	for i := 0; i < messageCount; i++ {
-		<-published
-	}
-
 	select {
 	case <-subCh:
 		break
