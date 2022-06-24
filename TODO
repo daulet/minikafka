@@ -1,9 +1,15 @@
+move tests to docker
+
+add publish bench to assess if single topic per publisher is much better than multi topic (lock on ensure channel, requires decoding)
+
+-> Multiple broker support with all ack
+
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
 Add latency test to verify write/read decoupling in publisher: write shouldn't take ~= latency
 
-Multiple broker support with all ack
+speed up docker compose build - not enough caching (go download and build steps)
 
 use toxyproxy slicer to test message parsing: https://github.com/Shopify/toxiproxy#slicer
 

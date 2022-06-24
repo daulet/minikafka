@@ -3,12 +3,17 @@ package test
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"testing"
 	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/daulet/minikafka"
 )
+
+func TestMain(m *testing.M) {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // TODO add bench equivalent to this test
 func TestWritesAreAcked(t *testing.T) {
@@ -18,7 +23,8 @@ func TestWritesAreAcked(t *testing.T) {
 		kafkaPort = 9091
 		kafkaAddr = fmt.Sprintf("minikafka:%d", kafkaPort)
 
-		msgs = 10
+		topic = randSeq(10)
+		msgs  = 10
 	)
 	// setup proxy behavior
 	{
@@ -41,7 +47,7 @@ func TestWritesAreAcked(t *testing.T) {
 		published := make(chan struct{}, msgs)
 		for i := 0; i < msgs; i++ {
 			go func() {
-				err := pub.Publish("", []byte("Hello"))
+				err := pub.Publish(topic, []byte("Hello"))
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
@@ -62,7 +68,8 @@ func TestAllPublished(t *testing.T) {
 		kafkaPubPort = 9091
 		kafkaSubPort = 9092
 
-		subs = 3
+		topic = randSeq(10)
+		subs  = 3
 	)
 	// setup proxy behavior
 	{
@@ -107,7 +114,7 @@ func TestAllPublished(t *testing.T) {
 		published := make(chan struct{}, len(expected))
 		for msg := range expected {
 			go func(s string) {
-				err := pub.Publish("", []byte(s))
+				err := pub.Publish(topic, []byte(s))
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
@@ -131,6 +138,7 @@ func TestAllPublished(t *testing.T) {
 			go func(expected map[string]struct{}) {
 				sub, err := minikafka.NewSubscriber(
 					minikafka.SubscriberBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxySubPort)),
+					minikafka.SubscriberTopic(topic),
 				)
 				if err != nil {
 					t.Error(err)
