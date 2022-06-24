@@ -49,3 +49,6 @@ jobs:
 
     - name: Test for data race
       run: go test -v -race --count=10 ./...
+
+    - name: Test in Containers
+      run: cd test && docker-compose up --abort-on-container-exit
