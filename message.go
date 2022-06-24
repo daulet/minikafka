@@ -31,6 +31,8 @@ func (r *MessageReader) SetDeadline(t time.Time) error {
 	return r.conn.SetDeadline(t)
 }
 
+// TODO should just call ReadRaw() since it parses message
+// unless ReadRaw is refactored to original state
 func (r *MessageReader) Read() (*Message, error) {
 	b, err := r.readBytes(4)
 	if err != nil {
@@ -50,19 +52,25 @@ func (r *MessageReader) Read() (*Message, error) {
 	return &msg, nil
 }
 
-func (r *MessageReader) ReadRaw() ([]byte, error) {
+func (r *MessageReader) ReadRaw() ([]byte, *Message, error) {
 	b, err := r.readBytes(4)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	raw := b
 	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
 	b, err = r.readBytes(n)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	raw = append(raw, b...)
-	return raw, nil
+	var msg Message
+	dec := gob.NewDecoder(bytes.NewReader(b))
+	err = dec.Decode(&msg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return raw, &msg, nil
 }
 
 func (r *MessageReader) Write(msg *Message) error {

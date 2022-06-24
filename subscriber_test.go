@@ -16,14 +16,11 @@ func TestFailedSubscriber(t *testing.T) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 
-	if err := os.Remove(fmt.Sprintf("%s/broker.log", os.TempDir())); err != nil {
-		log.Println(err)
-	}
-
 	var (
 		pubPort      = 5555
 		subPort      = 5556
 		messageCount = 10
+		topic        = "test_topic"
 	)
 
 	// run broker
@@ -49,6 +46,7 @@ func TestFailedSubscriber(t *testing.T) {
 	go func() {
 		sub, err := minikafka.NewSubscriber(
 			minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+			minikafka.SubscriberTopic(topic),
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -78,7 +76,7 @@ func TestFailedSubscriber(t *testing.T) {
 		published := make(chan struct{}, messageCount)
 		for i := 0; i < messageCount; i++ {
 			go func(i int) {
-				err := pub.Publish("", []byte(fmt.Sprintf("Hello %d", i)))
+				err := pub.Publish(topic, []byte(fmt.Sprintf("Hello %d", i)))
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}

@@ -124,7 +124,7 @@ func TestReadRaw_PacketPartitioning(t *testing.T) {
 				packets: packets,
 			},
 		)
-		raw, err := r.ReadRaw()
+		raw, _, err := r.ReadRaw()
 		if err != nil {
 			t.Fatal(err)
 		}

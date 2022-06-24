@@ -20,9 +20,17 @@ type Broker struct {
 	subPort        int
 	storageDir     string
 	pollingTimeout time.Duration
+
+	knownTopics     map[string]topicChannel
+	knownTopicsLock sync.RWMutex
 }
 
 type BrokerConfig func(b *Broker)
+
+type topicChannel struct {
+	name string
+	ch   chan []byte
+}
 
 func BrokerPublishPort(port int) BrokerConfig {
 	return func(b *Broker) {
@@ -53,29 +61,22 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 	for _, opt := range opts {
 		opt(b)
 	}
+	b.knownTopics = make(map[string]topicChannel)
 	return b
 }
 
 func (b *Broker) Run(ctx context.Context) {
-	var wg sync.WaitGroup
-
-	// ensure storage file exists
-	{
-		logFile, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_APPEND|os.O_CREATE, 0660)
-		if err != nil {
-			log.Fatal(err)
-		}
-		logFile.Close()
-	}
+	var (
+		wg     sync.WaitGroup
+		topics = make(chan topicChannel)
+	)
 
 	// listen for publishers, persist, acknowledge
 	{
-		msgCh := make(chan []byte)
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.write(ctx, msgCh)
+			b.writeTopics(ctx, topics)
 		}()
 
 		// TODO config broker IP
@@ -88,7 +89,7 @@ func (b *Broker) Run(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.poll(ctx, lstr.(*net.TCPListener), msgCh)
+			b.poll(ctx, lstr.(*net.TCPListener), topics)
 		}()
 	}
 
@@ -103,14 +104,14 @@ func (b *Broker) Run(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.serveSubs(ctx, lstr.(*net.TCPListener))
+			b.serveSubs(ctx, lstr.(*net.TCPListener), topics)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func (b *Broker) poll(ctx context.Context, lstr *net.TCPListener, msgCh chan<- []byte) {
+func (b *Broker) poll(ctx context.Context, lstr *net.TCPListener, topics chan<- topicChannel) {
 	var wg sync.WaitGroup
 LOOP:
 	for {
@@ -135,13 +136,13 @@ LOOP:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.handle(ctx, conn.(*net.TCPConn), msgCh)
+			b.handle(ctx, conn.(*net.TCPConn), topics)
 		}()
 	}
 	wg.Wait()
 }
 
-func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []byte) {
+func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- topicChannel) {
 	reader := NewMessageReader(conn)
 	defer reader.Close()
 	for {
@@ -153,7 +154,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []b
 		}
 
 		reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-		raw, err := reader.ReadRaw()
+		raw, msg, err := reader.ReadRaw()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
@@ -161,6 +162,13 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []b
 			if err != io.EOF {
 				log.Printf("failed to decode message: %v\n", err)
 			}
+			return
+		}
+
+		// TODO allowing multiple topics per publisher slows us down
+		msgCh, err := b.ensureTopic(topics, msg.Topic)
+		if err != nil {
+			log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
 			return
 		}
 
@@ -179,9 +187,61 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, msgCh chan<- []b
 	}
 }
 
-func (b *Broker) write(ctx context.Context, msgCh <-chan []byte) {
+func (b *Broker) ensureTopic(topics chan<- topicChannel, topic string) (chan<- []byte, error) {
+	if topic == "" {
+		return nil, fmt.Errorf("empty topic is invalid")
+	}
+
+	b.knownTopicsLock.RLock()
+	if tc, ok := b.knownTopics[topic]; ok {
+		b.knownTopicsLock.RUnlock()
+		return tc.ch, nil
+	}
+	b.knownTopicsLock.RUnlock()
+
+	// Topic does not exist
+	b.knownTopicsLock.Lock()
+	defer b.knownTopicsLock.Unlock()
+
+	// check once more for subsequent visitors
+	if tc, ok := b.knownTopics[topic]; ok {
+		return tc.ch, nil
+	}
+
+	logFile, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_APPEND|os.O_CREATE, 0660)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logFile.Close()
+
+	msgCh := make(chan []byte)
+	topics <- topicChannel{
+		name: topic,
+		ch:   msgCh,
+	}
+	return msgCh, nil
+}
+
+func (b *Broker) writeTopics(ctx context.Context, topics <-chan topicChannel) {
+	var wg sync.WaitGroup
+	for {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		case topic := <-topics:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				b.write(ctx, topic.name, topic.ch)
+			}()
+		}
+	}
+}
+
+func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 	// don't pass O_CREATE, file is ensured upstream, panic otherwise
-	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDWR|os.O_APPEND, 0660)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_RDWR|os.O_APPEND, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -205,7 +265,7 @@ func (b *Broker) write(ctx context.Context, msgCh <-chan []byte) {
 	}
 }
 
-func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener) {
+func (b *Broker) serveSubs(ctx context.Context, lstr *net.TCPListener, topics chan<- topicChannel) {
 	var wg sync.WaitGroup
 LOOP:
 	for {
@@ -231,14 +291,28 @@ LOOP:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			b.publish(ctx, conn)
+			b.publish(ctx, conn, topics)
 		}()
 	}
 	wg.Wait()
 }
 
-func (b *Broker) publish(ctx context.Context, conn net.Conn) {
-	f, err := os.OpenFile(fmt.Sprintf("%s/broker.log", b.storageDir), os.O_RDONLY, 0660)
+func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topicChannel) {
+	reader := NewMessageReader(conn)
+	defer reader.Close()
+
+	msg, err := reader.Read()
+	if err != nil {
+		log.Printf("failed to decode message: %v\n", err)
+		return
+	}
+	_, err = b.ensureTopic(topics, msg.Topic)
+	if err != nil {
+		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
+		return
+	}
+
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, msg.Topic), os.O_RDONLY, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}

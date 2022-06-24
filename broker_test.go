@@ -23,6 +23,7 @@ func TestWritesAreAcked(t *testing.T) {
 	pubPort := 5555
 	subPort := 5556
 	count := 10
+	topic := "test_topic"
 
 	broker := minikafka.NewBroker(
 		minikafka.BrokerPublishPort(pubPort),
@@ -50,7 +51,7 @@ func TestWritesAreAcked(t *testing.T) {
 		published := make(chan struct{}, count)
 		for i := 0; i < count; i++ {
 			go func() {
-				err := pub.Publish("", []byte("Hello"))
+				err := pub.Publish(topic, []byte("Hello"))
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
@@ -70,10 +71,7 @@ func TestAllPublished(t *testing.T) {
 	var wg sync.WaitGroup
 	subs := 3
 	ctx, cancel := context.WithCancel(context.Background())
-
-	if err := os.Remove(fmt.Sprintf("%s/broker.log", os.TempDir())); err != nil {
-		t.Fatal(err)
-	}
+	topic := "test_topic"
 
 	var (
 		pubPort     = 5555
@@ -115,6 +113,7 @@ func TestAllPublished(t *testing.T) {
 		go func(expectedMap map[string]struct{}) {
 			sub, err := minikafka.NewSubscriber(
 				minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+				minikafka.SubscriberTopic(topic),
 			)
 			if err != nil {
 				t.Error(err)
@@ -161,7 +160,7 @@ func TestAllPublished(t *testing.T) {
 		published := make(chan struct{}, len(expected))
 		for i := 0; i < len(expected); i++ {
 			go func(s string) {
-				err := pub.Publish("", []byte(s))
+				err := pub.Publish(topic, []byte(s))
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
