@@ -35,7 +35,7 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if conn == nil {
 		return nil, err
 	}
-	p.conn = &MessageReader{conn: conn.(*net.TCPConn)}
+	p.conn = NewMessageReader(conn.(*net.TCPConn))
 
 	p.reqs = make(chan *request, 1000)
 	p.resps = make(chan chan<- error, 1000)

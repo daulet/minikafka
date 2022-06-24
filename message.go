@@ -25,6 +25,7 @@ type Connection interface {
 type MessageReader struct {
 	conn   Connection
 	buffer []byte
+	temp   []byte
 }
 
 func (r *MessageReader) SetDeadline(t time.Time) error {
@@ -92,12 +93,11 @@ func (r *MessageReader) Close() error {
 
 func (r *MessageReader) readBytes(n int) ([]byte, error) {
 	if len(r.buffer) < n {
-		b := make([]byte, 15*1024) // 15KB is initial TCP packet size
-		m, err := io.ReadAtLeast(r.conn, b, n-len(r.buffer))
+		m, err := io.ReadAtLeast(r.conn, r.temp, n-len(r.buffer))
 		if err != nil {
 			return nil, err
 		}
-		r.buffer = append(r.buffer, b[:m]...)
+		r.buffer = append(r.buffer, r.temp[:m]...)
 	}
 
 	buff, ptr := make([]byte, n), 0
@@ -120,5 +120,6 @@ func (r *MessageReader) writeBytes(b []byte) (int, error) {
 func NewMessageReader(conn Connection) *MessageReader {
 	return &MessageReader{
 		conn: conn,
+		temp: make([]byte, 15*1024), // 15KB is initial TCP packet size
 	}
 }

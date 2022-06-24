@@ -8,12 +8,11 @@ go tool pprof profile.out
 ```
 
 ## Results
+Initial result:
 ```
-goos:linux                                          
-goarch: amd64                  
-pkg: bench/minikafka
-cpu: AMD Ryzen 9 5900HS with Radeon Graphics
 BenchmarkPublish1Topic-16             1000000             35166 ns/op
-PASS                          
-ok      bench/minikafka 36.021s
+```
+After reusing MessageReader's temporary buffer:
+```
+BenchmarkPublish1Topic-16             1210952             28874 ns/op
 ```
