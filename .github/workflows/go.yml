@@ -23,7 +23,7 @@ jobs:
 
     - name: Check <500 lines
       run: |
-        loc=$(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="bench" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}')
+        loc=$(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="app|bench|test" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}')
         echo "Go LOC: ${loc}"
         if [ $loc -gt 500 ];
           then exit 1;
