@@ -214,12 +214,14 @@ func (b *Broker) ensureTopic(topics chan<- topicChannel, topic string) (chan<- [
 	}
 	logFile.Close()
 
-	msgCh := make(chan []byte)
-	topics <- topicChannel{
+	tc := topicChannel{
 		name: topic,
-		ch:   msgCh,
+		ch:   make(chan []byte),
 	}
-	return msgCh, nil
+	b.knownTopics[topic] = tc
+	// TODO should this be under a lock?
+	topics <- tc
+	return tc.ch, nil
 }
 
 func (b *Broker) writeTopics(ctx context.Context, topics <-chan topicChannel) {
