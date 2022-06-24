@@ -79,7 +79,7 @@ func (b *Broker) Run(ctx context.Context) {
 		}()
 
 		// TODO config broker IP
-		lstr, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", b.pubPort))
+		lstr, err := net.Listen("tcp", fmt.Sprintf(":%d", b.pubPort))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -94,7 +94,7 @@ func (b *Broker) Run(ctx context.Context) {
 
 	// listen for subscribers, publish
 	{
-		lstr, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", b.subPort))
+		lstr, err := net.Listen("tcp", fmt.Sprintf(":%d", b.subPort))
 		if err != nil {
 			log.Fatal(err)
 		}

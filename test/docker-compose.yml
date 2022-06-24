@@ -1,11 +1,17 @@
 version: '2'
 services:
+  minikafka:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+
   toxiproxy:
     image: ghcr.io/shopify/toxiproxy
-    ports:
-      - "8474:8474"
 
-  kafka:
-    build: ../app
-    ports:
-      - "9091:9091"
+  runner:
+    depends_on:
+      - minikafka
+      - toxiproxy
+    build:
+      context: ..
+      dockerfile: test/Dockerfile

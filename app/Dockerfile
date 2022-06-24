@@ -6,7 +6,7 @@ ADD . /build
 WORKDIR /build
 
 RUN \
-    go build -o /build/minikafka
+    go build -o /build/minikafka app/app.go
 
 FROM scratch
 

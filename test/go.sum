@@ -1,2 +1,4 @@
 github.com/Shopify/toxiproxy/v2 v2.4.0 h1:O1e4Jfvr/hefNTNu+8VtdEG5lSeamJRo4aKhMOKNM64=
 github.com/Shopify/toxiproxy/v2 v2.4.0/go.mod h1:3ilnjng821bkozDRxNoo64oI/DKqM+rOyJzb564+bvg=
+github.com/daulet/minikafka v0.0.0-20220621224352-0a6807e5166e h1:YWsb7RXg2t1vYQCEUvJ8NeWSSXn4yNLRR1Y0/VTvCgI=
+github.com/daulet/minikafka v0.0.0-20220621224352-0a6807e5166e/go.mod h1:rcJ0kTa/thbitgLtU+nbt9LY/BU6wX7llS2jMNH2Bb8=
