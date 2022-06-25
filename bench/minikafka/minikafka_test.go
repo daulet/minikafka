@@ -46,20 +46,27 @@ func BenchmarkPublish1Topic(b *testing.B) {
 
 		b.ResetTimer()
 
-		published := make(chan struct{}, msgs)
-		for i := 0; i < msgs; i++ {
-			go func() {
-				err := pub.Publish(topic, []byte("Hello"))
-				if err != nil {
-					b.Errorf("error publishing message: %v", err)
+		var (
+			workGrp sync.WaitGroup
+			workers = 4 * 1024
+			payload = []byte("Hello")
+		)
+		workGrp.Add(workers)
+		for i := 0; i < workers; i++ {
+			count := msgs / workers
+			if i < msgs%workers {
+				count++
+			}
+			go func(count int) {
+				defer workGrp.Done()
+				for i := 0; i < count; i++ {
+					if err := pub.Publish(topic, payload); err != nil {
+						b.Errorf("error publishing message: %v", err)
+					}
 				}
-				published <- struct{}{}
-			}()
+			}(count)
 		}
-		for i := 0; i < msgs; i++ {
-			<-published
-		}
-		close(published)
+		workGrp.Wait()
 
 		b.StopTimer()
 	}

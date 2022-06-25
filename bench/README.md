@@ -24,3 +24,7 @@ Stop serializing messages, send payload as plain bytes
 ```
 BenchmarkPublish1Topic-16             4107202              8955 ns/op
 ```
+Do not flush write buffer on every message
+```
+BenchmarkPublish1Topic-16             4573563              7746 ns/op
+```

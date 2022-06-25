@@ -256,20 +256,23 @@ func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
-
+	t := time.After(b.pollingTimeout)
 	for {
 		select {
 		case <-ctx.Done():
 			w.Flush()
 			return
+		case <-t:
+			// TODO this affects overall e2e latency
+			w.Flush()
+			// TODO smaller timeout to speed up e2e latency
+			t = time.After(b.pollingTimeout)
 		case msg := <-msgCh:
 			_, err := w.Write(msg)
 			if err != nil {
 				// TODO send a nack
 				continue
 			}
-			w.Flush() // TODO test if this can be avoided on every message
-			// f.Sync() // TODO compare to this
 		}
 	}
 }
