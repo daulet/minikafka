@@ -11,6 +11,7 @@ type Publisher struct {
 	conn  *MessageReader
 	reqs  chan *request
 	resps chan chan<- error
+	topic string
 }
 
 type request struct {
@@ -26,16 +27,32 @@ func PublisherBrokerAddress(addr string) PublisherConfig {
 	}
 }
 
+func PublisherTopic(topic string) PublisherConfig {
+	return func(p *Publisher) {
+		p.topic = topic
+	}
+}
+
 func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	p := &Publisher{}
 	for _, opt := range opts {
 		opt(p)
+	}
+	if p.topic == "" {
+		return nil, fmt.Errorf("topic is required")
 	}
 	conn, err := dial("tcp", p.addr, time.Second)
 	if conn == nil {
 		return nil, err
 	}
 	p.conn = NewMessageReader(conn.(*net.TCPConn))
+	// first message is to declare what this publisher is publishing
+	err = p.conn.Write(&Message{
+		Topic: p.topic,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	p.reqs = make(chan *request, 1000)
 	p.resps = make(chan chan<- error, 1000)

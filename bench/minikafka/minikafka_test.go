@@ -37,6 +37,7 @@ func BenchmarkPublish1Topic(b *testing.B) {
 	{
 		pub, err := minikafka.NewPublisher(
 			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			minikafka.PublisherTopic(topic),
 		)
 		if err != nil {
 			b.Fatal(err)

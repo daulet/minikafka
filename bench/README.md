@@ -16,3 +16,7 @@ After reusing MessageReader's temporary buffer:
 ```
 BenchmarkPublish1Topic-16             1210952             28874 ns/op
 ```
+Limit publisher connection to a single topic, avoid parsing of each message:
+```
+BenchmarkPublish1Topic-16             3412143             10551 ns/op
+```

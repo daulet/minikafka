@@ -1,7 +1,5 @@
 move tests to docker
 
-add publish bench to assess if single topic per publisher is much better than multi topic (lock on ensure channel, requires decoding)
-
 -> Multiple broker support with all ack
 
 clean up producer.go or setup better benchmark:

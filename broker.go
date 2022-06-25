@@ -145,6 +145,19 @@ LOOP:
 func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- topicChannel) {
 	reader := NewMessageReader(conn)
 	defer reader.Close()
+
+	msg, err := reader.Read()
+	if err != nil {
+		log.Printf("failed to read topic of publisher: %v", err)
+		return
+	}
+	topic := msg.Topic
+	msgCh, err := b.ensureTopic(topics, topic)
+	if err != nil {
+		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
+		return
+	}
+
 	for {
 		// separately check for closed context is necessary in case of read timeout
 		select {
@@ -154,7 +167,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 		}
 
 		reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-		raw, msg, err := reader.ReadRaw()
+		raw, err := reader.ReadRaw()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
@@ -162,13 +175,6 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 			if err != io.EOF {
 				log.Printf("failed to decode message: %v\n", err)
 			}
-			return
-		}
-
-		// TODO allowing multiple topics per publisher slows us down
-		msgCh, err := b.ensureTopic(topics, msg.Topic)
-		if err != nil {
-			log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
 			return
 		}
 
@@ -262,7 +268,8 @@ func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 				// TODO send a nack
 				continue
 			}
-			w.Flush()
+			w.Flush() // TODO test if this can be avoided on every message
+			// f.Sync() // TODO compare to this
 		}
 	}
 }

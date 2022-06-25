@@ -42,6 +42,7 @@ func TestWritesAreAcked(t *testing.T) {
 		<-time.After(brokerBootDelay)
 		pub, err := minikafka.NewPublisher(
 			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			minikafka.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -151,6 +152,7 @@ func TestAllPublished(t *testing.T) {
 	{
 		pub, err := minikafka.NewPublisher(
 			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			minikafka.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)

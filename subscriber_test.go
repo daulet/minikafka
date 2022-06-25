@@ -67,6 +67,7 @@ func TestFailedSubscriber(t *testing.T) {
 	{
 		pub, err := minikafka.NewPublisher(
 			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			minikafka.PublisherTopic(topic),
 		)
 		if err != nil {
 			log.Fatal(err)
