@@ -1,3 +1,3 @@
 module github.com/daulet/minikafka
 
-go 1.17
+go 1.18

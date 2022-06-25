@@ -68,7 +68,7 @@ func TestRead_PacketPartitioning(t *testing.T) {
 		}
 	}
 	{
-		r := minikafka.NewMessageReader(
+		r := minikafka.NewMessageReader[minikafka.Message](
 			&TestConn{
 				packets: packets,
 			},
@@ -119,7 +119,7 @@ func TestReadRaw_PacketPartitioning(t *testing.T) {
 		}
 	}
 	{
-		r := minikafka.NewMessageReader(
+		r := minikafka.NewMessageReader[minikafka.Message](
 			&TestConn{
 				packets: packets,
 			},

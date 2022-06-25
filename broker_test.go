@@ -74,6 +74,10 @@ func TestAllPublished(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	topic := "test_topic"
 
+	if err := os.Remove(fmt.Sprintf("%s/%s.log", os.TempDir(), topic)); err != nil {
+		t.Fatal(err)
+	}
+
 	var (
 		pubPort     = 5555
 		subPort     = 5556

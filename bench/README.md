@@ -20,3 +20,7 @@ Limit publisher connection to a single topic, avoid parsing of each message:
 ```
 BenchmarkPublish1Topic-16             3412143             10551 ns/op
 ```
+Stop serializing messages, send payload as plain bytes
+```
+BenchmarkPublish1Topic-16             4107202              8955 ns/op
+```

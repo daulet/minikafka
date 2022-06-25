@@ -8,14 +8,14 @@ import (
 
 type Publisher struct {
 	addr  string
-	conn  *MessageReader
+	conn  *MessageReader[[]byte]
 	reqs  chan *request
 	resps chan chan<- error
 	topic string
 }
 
 type request struct {
-	msg  *Message
+	msg  *[]byte
 	resp chan<- error
 }
 
@@ -45,20 +45,21 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if conn == nil {
 		return nil, err
 	}
-	p.conn = NewMessageReader(conn.(*net.TCPConn))
+	p.conn = NewMessageReader[[]byte](conn.(*net.TCPConn))
 	// first message is to declare what this publisher is publishing
-	err = p.conn.Write(&Message{
-		Topic: p.topic,
-	})
-	if err != nil {
-		return nil, err
+	{
+		data := []byte(p.topic)
+		err = p.conn.WriteBytes(&data)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	p.reqs = make(chan *request, 1000)
 	p.resps = make(chan chan<- error, 1000)
 	go func() {
 		for req := range p.reqs {
-			err := p.conn.Write(req.msg)
+			err := p.conn.WriteBytes(req.msg)
 			if err != nil {
 				req.resp <- fmt.Errorf("error writing message: %v", err)
 				continue
@@ -84,11 +85,11 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	return p, nil
 }
 
-func (p *Publisher) Publish(topic string, data []byte) error {
+func (p *Publisher) Publish(_ string, data []byte) error {
 	ch := make(chan error)
 	defer close(ch)
 	p.reqs <- &request{
-		msg:  &Message{Topic: topic, Payload: data},
+		msg:  &data,
 		resp: ch,
 	}
 	return <-ch

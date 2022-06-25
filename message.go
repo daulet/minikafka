@@ -22,18 +22,17 @@ type Connection interface {
 }
 
 // MessageReader wraps a TCP stream to read/write valid Message.
-// TODO later make it generic so user can specify the message type.
-type MessageReader struct {
+type MessageReader[T any] struct {
 	conn   Connection
 	buffer []byte
 	temp   []byte
 }
 
-func (r *MessageReader) SetDeadline(t time.Time) error {
+func (r *MessageReader[_]) SetDeadline(t time.Time) error {
 	return r.conn.SetDeadline(t)
 }
 
-func (r *MessageReader) Read() (*Message, error) {
+func (r *MessageReader[T]) Read() (*T, error) {
 	b, err := r.readBytes(4)
 	if err != nil {
 		return nil, err
@@ -43,7 +42,7 @@ func (r *MessageReader) Read() (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	var msg Message
+	var msg T
 	dec := gob.NewDecoder(bytes.NewReader(b))
 	err = dec.Decode(&msg)
 	if err != nil {
@@ -52,7 +51,23 @@ func (r *MessageReader) Read() (*Message, error) {
 	return &msg, nil
 }
 
-func (r *MessageReader) ReadRaw() ([]byte, error) {
+// If your message is just bytes, get just payload, no gob involved
+func (r *MessageReader[_]) ReadPayload() ([]byte, error) {
+	b, err := r.readBytes(4)
+	if err != nil {
+		return nil, err
+	}
+	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	b, err = r.readBytes(n)
+	if err != nil {
+		return nil, err
+	}
+	cb := make([]byte, len(b))
+	copy(cb, b)
+	return cb, nil
+}
+
+func (r *MessageReader[_]) ReadRaw() ([]byte, error) {
 	b, err := r.readBytes(4)
 	if err != nil {
 		return nil, err
@@ -67,7 +82,7 @@ func (r *MessageReader) ReadRaw() ([]byte, error) {
 	return raw, nil
 }
 
-func (r *MessageReader) Write(msg *Message) error {
+func (r *MessageReader[T]) Write(msg *T) error {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 	err := enc.Encode(msg)
@@ -80,11 +95,18 @@ func (r *MessageReader) Write(msg *Message) error {
 	return err
 }
 
-func (r *MessageReader) Close() error {
+func (r *MessageReader[T]) WriteBytes(data *[]byte) error {
+	n := len(*data)
+	r.conn.Write([]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
+	_, err := r.conn.Write(*data)
+	return err
+}
+
+func (r *MessageReader[_]) Close() error {
 	return r.conn.Close()
 }
 
-func (r *MessageReader) readBytes(n int) ([]byte, error) {
+func (r *MessageReader[_]) readBytes(n int) ([]byte, error) {
 	if len(r.buffer) < n {
 		m, err := io.ReadAtLeast(r.conn, r.temp, n-len(r.buffer))
 		if err != nil {
@@ -106,12 +128,12 @@ func (r *MessageReader) readBytes(n int) ([]byte, error) {
 	return buff, nil
 }
 
-func (r *MessageReader) writeBytes(b []byte) (int, error) {
+func (r *MessageReader[_]) writeBytes(b []byte) (int, error) {
 	return r.conn.Write(b)
 }
 
-func NewMessageReader(conn Connection) *MessageReader {
-	return &MessageReader{
+func NewMessageReader[T any](conn Connection) *MessageReader[T] {
+	return &MessageReader[T]{
 		conn: conn,
 		temp: make([]byte, 15*1024), // 15KB is initial TCP packet size
 	}

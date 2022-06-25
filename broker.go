@@ -143,15 +143,15 @@ LOOP:
 }
 
 func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- topicChannel) {
-	reader := NewMessageReader(conn)
+	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
 
-	msg, err := reader.Read()
+	data, err := reader.ReadPayload()
 	if err != nil {
 		log.Printf("failed to read topic of publisher: %v", err)
 		return
 	}
-	topic := msg.Topic
+	topic := string(data)
 	msgCh, err := b.ensureTopic(topics, topic)
 	if err != nil {
 		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
@@ -307,21 +307,22 @@ LOOP:
 }
 
 func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topicChannel) {
-	reader := NewMessageReader(conn)
+	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
 
-	msg, err := reader.Read()
+	data, err := reader.ReadPayload()
 	if err != nil {
 		log.Printf("failed to decode message: %v\n", err)
 		return
 	}
-	_, err = b.ensureTopic(topics, msg.Topic)
+	topic := string(data)
+	_, err = b.ensureTopic(topics, topic)
 	if err != nil {
 		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
 		return
 	}
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, msg.Topic), os.O_RDONLY, 0660)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_RDONLY, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}

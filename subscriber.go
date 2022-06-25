@@ -8,7 +8,7 @@ import (
 type Subscriber struct {
 	addr  string
 	conn  *net.TCPConn
-	rdr   *MessageReader
+	rdr   *MessageReader[[]byte]
 	topic string
 }
 
@@ -36,20 +36,24 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 		return nil, err
 	}
 	s.conn = conn.(*net.TCPConn)
-	s.rdr = NewMessageReader(s.conn)
+	s.rdr = NewMessageReader[[]byte](s.conn)
 	// first message is to declare what this subscriber is listening for
-	s.rdr.Write(&Message{
-		Topic: s.topic,
-	})
+	{
+		data := []byte(s.topic)
+		err = s.rdr.WriteBytes(&data)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
 func (s *Subscriber) Read() ([]byte, error) {
-	msg, err := s.rdr.Read()
+	msg, err := s.rdr.ReadPayload()
 	if err != nil {
 		return nil, err
 	}
-	return msg.Payload, nil
+	return msg, nil
 }
 
 func (s *Subscriber) Close() {
