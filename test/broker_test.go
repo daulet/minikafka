@@ -8,7 +8,7 @@ import (
 	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
-	"github.com/daulet/minikafka"
+	"github.com/daulet/minikafka/client"
 )
 
 func TestMain(m *testing.M) {
@@ -36,8 +36,8 @@ func TestWritesAreAcked(t *testing.T) {
 		defer proxy.Delete()
 	}
 	{
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(proxyAddr),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(proxyAddr),
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -103,8 +103,8 @@ func TestAllPublished(t *testing.T) {
 
 	// publish messages
 	{
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxyPubPort)),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxyPubPort)),
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -136,9 +136,9 @@ func TestAllPublished(t *testing.T) {
 			}
 
 			go func(expected map[string]struct{}) {
-				sub, err := minikafka.NewSubscriber(
-					minikafka.SubscriberBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxySubPort)),
-					minikafka.SubscriberTopic(topic),
+				sub, err := client.NewSubscriber(
+					client.SubscriberBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxySubPort)),
+					client.SubscriberTopic(topic),
 				)
 				if err != nil {
 					t.Error(err)

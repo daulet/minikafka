@@ -1,4 +1,4 @@
-package minikafka
+package client
 
 import (
 	"fmt"

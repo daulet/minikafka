@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/daulet/minikafka"
+	"github.com/daulet/minikafka/client"
 )
 
 func BenchmarkPublish1Topic(b *testing.B) {
@@ -35,9 +36,9 @@ func BenchmarkPublish1Topic(b *testing.B) {
 		broker.Run(ctx)
 	}()
 	{
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-			minikafka.PublisherTopic(topic),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			b.Fatal(err)

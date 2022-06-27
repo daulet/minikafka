@@ -1,14 +1,16 @@
-package minikafka
+package client
 
 import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/daulet/minikafka"
 )
 
 type Publisher struct {
 	addr  string
-	conn  *MessageReader[[]byte]
+	conn  *minikafka.MessageReader[[]byte]
 	reqs  chan *request
 	resps chan chan<- error
 	topic string
@@ -45,7 +47,7 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if conn == nil {
 		return nil, err
 	}
-	p.conn = NewMessageReader[[]byte](conn.(*net.TCPConn))
+	p.conn = minikafka.NewMessageReader[[]byte](conn.(*net.TCPConn))
 	// first message is to declare what this publisher is publishing
 	{
 		data := []byte(p.topic)
@@ -70,13 +72,13 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	go func() {
 		for resp := range p.resps {
 			// wait for ack, there is no way to distinguish between acks for different messages
-			buff, err := p.conn.readBytes(2)
+			buff, err := p.conn.ReadByte()
 			if err != nil {
 				resp <- fmt.Errorf("error reading response: %v", err)
 				continue
 			}
-			if string(buff) != "OK" {
-				resp <- fmt.Errorf("received a NACK %s", buff)
+			if string(buff) != "K" {
+				resp <- fmt.Errorf("received a NACK %v", buff)
 				continue
 			}
 			resp <- nil

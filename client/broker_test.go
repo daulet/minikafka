@@ -1,4 +1,4 @@
-package minikafka_test
+package client_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/daulet/minikafka"
+	"github.com/daulet/minikafka/client"
 )
 
 const brokerBootDelay = 10 * time.Millisecond
@@ -40,9 +41,9 @@ func TestWritesAreAcked(t *testing.T) {
 	{
 		// let the broker in goroutine chance to boot
 		<-time.After(brokerBootDelay)
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-			minikafka.PublisherTopic(topic),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -116,9 +117,9 @@ func TestAllPublished(t *testing.T) {
 		}
 
 		go func(expectedMap map[string]struct{}) {
-			sub, err := minikafka.NewSubscriber(
-				minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
-				minikafka.SubscriberTopic(topic),
+			sub, err := client.NewSubscriber(
+				client.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+				client.SubscriberTopic(topic),
 			)
 			if err != nil {
 				t.Error(err)
@@ -154,9 +155,9 @@ func TestAllPublished(t *testing.T) {
 		}(m)
 	}
 	{
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-			minikafka.PublisherTopic(topic),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)

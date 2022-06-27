@@ -23,7 +23,7 @@ jobs:
 
     - name: Check <500 lines
       run: |
-        loc=$(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="app|bench|test" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}')
+        loc=$(${HOME}/go/bin/gocloc --not-match=test.go --not-match-d="app|bench|client|test" . | grep -oP '^Go.*([0-9]+)$' | awk '{print $5}')
         echo "Go LOC: ${loc}"
         if [ $loc -gt 500 ];
           then exit 1;
@@ -42,13 +42,13 @@ jobs:
         go-version: 1.18
 
     - name: Build
-      run: go build -v ./...
+      run: go build -v . ./client
 
     - name: Test
-      run: go test -v --count=100 ./...
+      run: go test -v --count=100 . ./client
 
     - name: Test for data race
-      run: go test -v -race --count=10 ./...
+      run: go test -v -race --count=100 . ./client
 
     - name: Test in Containers
       run: cd test && docker-compose up --abort-on-container-exit

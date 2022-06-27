@@ -183,7 +183,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 		case msgCh <- raw:
 			// TODO different timeout from polling?
 			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
-			_, err := reader.writeBytes([]byte("OK"))
+			_, err := reader.writeBytes([]byte("K"))
 			if err != nil {
 				log.Printf("failed to ack message: %v\n", err)
 			}

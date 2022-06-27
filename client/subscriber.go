@@ -1,14 +1,16 @@
-package minikafka
+package client
 
 import (
 	"net"
 	"time"
+
+	"github.com/daulet/minikafka"
 )
 
 type Subscriber struct {
 	addr  string
 	conn  *net.TCPConn
-	rdr   *MessageReader[[]byte]
+	rdr   *minikafka.MessageReader[[]byte]
 	topic string
 }
 
@@ -36,7 +38,7 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 		return nil, err
 	}
 	s.conn = conn.(*net.TCPConn)
-	s.rdr = NewMessageReader[[]byte](s.conn)
+	s.rdr = minikafka.NewMessageReader[[]byte](s.conn)
 	// first message is to declare what this subscriber is listening for
 	{
 		data := []byte(s.topic)

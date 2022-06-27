@@ -1,4 +1,4 @@
-package minikafka_test
+package client_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/daulet/minikafka"
+	"github.com/daulet/minikafka/client"
 )
 
 func TestFailedSubscriber(t *testing.T) {
@@ -44,9 +45,9 @@ func TestFailedSubscriber(t *testing.T) {
 	// whether subscriber is done
 	subCh := make(chan struct{}, 1)
 	go func() {
-		sub, err := minikafka.NewSubscriber(
-			minikafka.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
-			minikafka.SubscriberTopic(topic),
+		sub, err := client.NewSubscriber(
+			client.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+			client.SubscriberTopic(topic),
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -65,9 +66,9 @@ func TestFailedSubscriber(t *testing.T) {
 		subCh <- struct{}{}
 	}()
 	{
-		pub, err := minikafka.NewPublisher(
-			minikafka.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-			minikafka.PublisherTopic(topic),
+		pub, err := client.NewPublisher(
+			client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			log.Fatal(err)

@@ -106,6 +106,11 @@ func (r *MessageReader[_]) Close() error {
 	return r.conn.Close()
 }
 
+func (r *MessageReader[_]) ReadByte() (byte, error) {
+	b, err := r.readBytes(1)
+	return b[0], err
+}
+
 func (r *MessageReader[_]) readBytes(n int) ([]byte, error) {
 	if len(r.buffer) < n {
 		m, err := io.ReadAtLeast(r.conn, r.temp, n-len(r.buffer))
