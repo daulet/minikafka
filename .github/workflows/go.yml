@@ -52,3 +52,6 @@ jobs:
 
     - name: Test in Containers
       run: cd test && docker-compose up --abort-on-container-exit
+
+    - name: Benchmark minikafka
+      run: go test ./bench/minikafka
