@@ -78,7 +78,7 @@ func BenchmarkPublish1Topic(b *testing.B) {
 func Test_Publish1Topic(t *testing.T) {
 	bm := testing.Benchmark(BenchmarkPublish1Topic)
 	fmt.Printf("BenchmarkPublish1Topic:		%v		%v ns/op\n", bm.N, bm.NsPerOp())
-	if bm.NsPerOp() > 9000 { //9 microseconds
+	if bm.NsPerOp() > 11000 { // 11 microseconds, based on Github Actions SKU
 		panic(fmt.Errorf("BenchmarkPublish1Topic speed is too low: %v ns/op", bm.NsPerOp()))
 	}
 }
