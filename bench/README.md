@@ -1,13 +1,13 @@
 ## Benchmark minikafka
 ```
 cd minikafka
-go test -bench=. -run=^\$ -benchtime=30s -cpuprofile profile.out
+go test -bench=. -benchmem -run=^\$ -benchtime=30s -cpuprofile profile.out
 go tool pprof profile.out
 (pprof) web
 (pprof) list handle
 ```
 
-## Results
+## Publish & ack
 Initial result:
 ```
 BenchmarkPublish1Topic-16             1000000             35166 ns/op
@@ -31,4 +31,12 @@ BenchmarkPublish1Topic-16             4573563              7746 ns/op
 Adaptive number of publishers instead of fixed pool of workers
 ```
 BenchmarkPublish1Topic-16             8201721              4268 ns/op
+```
+
+## End to End pub & sub
+Initial:
+```
+BenchmarkThroughput-16           3000129             12708 ns/op           33735 B/op         22 allocs/op
+BenchmarkThroughput-16           2851030             12028 ns/op           32641 B/op         21 allocs/op
+BenchmarkThroughput-16           2943692             12047 ns/op           32306 B/op         21 allocs/op
 ```
