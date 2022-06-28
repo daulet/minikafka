@@ -47,7 +47,8 @@ func TestWritesAreAcked(t *testing.T) {
 		published := make(chan struct{}, msgs)
 		for i := 0; i < msgs; i++ {
 			go func() {
-				err := pub.Publish(topic, []byte("Hello"))
+				payload := []byte("Hello")
+				err := pub.Publish(topic, &payload)
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
@@ -114,7 +115,8 @@ func TestAllPublished(t *testing.T) {
 		published := make(chan struct{}, len(expected))
 		for msg := range expected {
 			go func(s string) {
-				err := pub.Publish(topic, []byte(s))
+				payload := []byte(s)
+				err := pub.Publish(topic, &payload)
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}

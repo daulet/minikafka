@@ -108,7 +108,10 @@ func (r *MessageReader[_]) Close() error {
 
 func (r *MessageReader[_]) ReadByte() (byte, error) {
 	b, err := r.readBytes(1)
-	return b[0], err
+	if err != nil {
+		return 0, err
+	}
+	return b[0], nil
 }
 
 func (r *MessageReader[_]) readBytes(n int) ([]byte, error) {

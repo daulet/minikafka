@@ -69,6 +69,7 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 			p.resps <- req.resp
 		}
 	}()
+	// without separate goroutine for reading we are 2.6x slower
 	go func() {
 		for resp := range p.resps {
 			// wait for ack, there is no way to distinguish between acks for different messages
@@ -87,11 +88,12 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	return p, nil
 }
 
-func (p *Publisher) Publish(_ string, data []byte) error {
+// Writing to TCP conn has to be single threaded to correctly serialize.
+func (p *Publisher) Publish(_ string, data *[]byte) error {
 	ch := make(chan error)
 	defer close(ch)
 	p.reqs <- &request{
-		msg:  &data,
+		msg:  data,
 		resp: ch,
 	}
 	return <-ch

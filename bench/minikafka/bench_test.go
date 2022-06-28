@@ -61,7 +61,7 @@ func BenchmarkPublish1Topic(b *testing.B) {
 			go func(count int) {
 				defer workGrp.Done()
 				for i := 0; i < count; i++ {
-					if err := pub.Publish(topic, payload); err != nil {
+					if err := pub.Publish(topic, &payload); err != nil {
 						b.Errorf("error publishing message: %v", err)
 					}
 				}

@@ -78,7 +78,8 @@ func TestFailedSubscriber(t *testing.T) {
 		published := make(chan struct{}, messageCount)
 		for i := 0; i < messageCount; i++ {
 			go func(i int) {
-				err := pub.Publish(topic, []byte(fmt.Sprintf("Hello %d", i)))
+				payload := []byte(fmt.Sprintf("Hello %d", i))
+				err := pub.Publish(topic, &payload)
 				if err != nil {
 					t.Errorf("error publishing message: %v", err)
 				}
