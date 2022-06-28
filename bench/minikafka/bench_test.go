@@ -6,7 +6,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -51,10 +50,9 @@ func BenchmarkPublish1Topic(b *testing.B) {
 		b.ResetTimer()
 
 		var (
-			workGrp       sync.WaitGroup
-			msgCh         = make(chan *[]byte)
-			payload       = []byte("Hello")
-			maxGoroutines = 0
+			workGrp sync.WaitGroup
+			msgCh   = make(chan *[]byte)
+			payload = []byte("Hello")
 		)
 
 		for i := 0; i < msgs; i++ {
@@ -68,22 +66,19 @@ func BenchmarkPublish1Topic(b *testing.B) {
 			go func() {
 				defer workGrp.Done()
 
-				if cnt := runtime.NumGoroutine(); cnt > maxGoroutines {
-					maxGoroutines = cnt
-				}
-
 				for msg := range msgCh {
 					if err := pub.Publish(topic, msg); err != nil {
 						b.Errorf("error publishing message: %v", err)
 					}
 				}
 			}()
+
+			msgCh <- &payload
 		}
 		close(msgCh)
 		workGrp.Wait()
 
 		b.StopTimer()
-		b.Logf("max goroutines: %v", maxGoroutines)
 	}
 	cancel()
 	wg.Wait()

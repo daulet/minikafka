@@ -32,6 +32,12 @@ Adaptive number of publishers instead of fixed pool of workers
 ```
 BenchmarkPublish1Topic-16             8201721              4268 ns/op
 ```
+Fix a bug in previous "improvement" - we were not publishing all messages
+```
+BenchmarkPublish1Topic-16        4433725              7851 ns/op             596 B/op         10 allocs/op
+BenchmarkPublish1Topic-16        4621489              7754 ns/op             314 B/op         10 allocs/op
+BenchmarkPublish1Topic-16        4418972              7768 ns/op             296 B/op         10 allocs/op
+```
 
 ## End to End pub & sub
 Initial:
