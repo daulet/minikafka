@@ -28,3 +28,7 @@ Do not flush write buffer on every message
 ```
 BenchmarkPublish1Topic-16             4573563              7746 ns/op
 ```
+Adaptive number of publishers instead of fixed pool of workers
+```
+BenchmarkPublish1Topic-16             8201721              4268 ns/op
+```
