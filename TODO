@@ -1,28 +1,35 @@
-move tests to docker
+# Must
 
--> Multiple broker support with all ack
+move tests to docker:
+Add latency test to verify write/read decoupling in publisher: write shouldnt take ~= latency
+use toxyproxy slicer to test message parsing: https://github.com/Shopify/toxiproxy#slicer
+setup benchmark, start with kafka, use toxiproxy to simulate latency across brokers
+test that broker.log is appended, not replaced
+publisher test fails if we dont listen for ack in test
+test publish failure is correctly communicated to publisher
+
+bench: e2e latency 
+batching in publish and subscribe
+
+Multiple broker support with all ack
 
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
-Add latency test to verify write/read decoupling in publisher: write shouldn't take ~= latency
 
+## Nice to have
+
+investigate results of: `go build -gcflags='-m' . 2>&1`
+
+too many duplicated tests: client/bench/test - unify or keep in sync
 speed up docker compose build - not enough caching (go download and build steps)
-
-use toxyproxy slicer to test message parsing: https://github.com/Shopify/toxiproxy#slicer
 
 Publisher and Subscriber should implement Writer and Reader interface respectively
 
-bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test
 
-setup benchmark, start with kafka, use toxiproxy to simulate latency across brokers
-
-migrate tests to docker
+## Future
 
 pick features to support from here: https://medium.com/swlh/why-kafka-is-so-fast-bde0d987cd03
-
-test that broker.log is appended, not replaced
-publisher test fails if we don't listen for ack in test
 
 read system design articles on kafka/queues for:
 figure out deployment - image for brokers, how they boot, recover; how subs and pubs discover kafka
