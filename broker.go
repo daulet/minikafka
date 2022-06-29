@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -309,6 +310,9 @@ LOOP:
 	wg.Wait()
 }
 
+// somehow using larger size reduces throughput
+const maxSendfileSize int = 1 << 7
+
 func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topicChannel) {
 	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
@@ -330,8 +334,22 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 		log.Fatal(err)
 	}
 	defer f.Close()
+	sc, err := f.SyscallConn()
+	if err != nil {
+		log.Fatalf("unable to get syscall conn: %v", err)
+	}
 
-	var offset int64
+	tcpConn := conn.(*net.TCPConn)
+	socket, err := tcpConn.File()
+	if err != nil {
+		log.Fatalf("unable to get conn.File(): %v", err)
+	}
+	defer socket.Close()
+
+	var (
+		offset int64
+		werr   error
+	)
 	for {
 		select {
 		case <-ctx.Done():
@@ -339,12 +357,18 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 		default:
 		}
 
-		f.Seek(offset, 0)
-		n, err := io.Copy(conn, f)
-		if err != nil {
-			log.Printf("publish: write failed with %v", err)
-			break
+		err = sc.Read(func(fd uintptr) bool {
+			_, werr = syscall.Sendfile(int(socket.Fd()), int(fd), &offset, maxSendfileSize)
+			return true
+		})
+		if err == nil {
+			err = werr
 		}
-		offset += int64(n)
+		if err == syscall.EINTR {
+			continue
+		}
+		if err != nil {
+			log.Fatalf("unable to send file: %v", err)
+		}
 	}
 }

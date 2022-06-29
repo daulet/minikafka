@@ -46,3 +46,9 @@ BenchmarkThroughput-16           3000129             12708 ns/op           33735
 BenchmarkThroughput-16           2851030             12028 ns/op           32641 B/op         21 allocs/op
 BenchmarkThroughput-16           2943692             12047 ns/op           32306 B/op         21 allocs/op
 ```
+Zero copy write from log file to subscriber's connection
+```
+BenchmarkThroughput-16           4554684              8198 ns/op            1041 B/op         27 allocs/op
+BenchmarkThroughput-16           4182267              9025 ns/op             750 B/op         26 allocs/op
+BenchmarkThroughput-16           3827070              9128 ns/op             748 B/op         26 allocs/op
+```
