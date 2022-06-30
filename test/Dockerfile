@@ -7,4 +7,4 @@ WORKDIR /bin
 
 RUN go test -c -o /bin/tests ./test/...
 
-ENTRYPOINT [ "/bin/tests", "-test.timeout=1s", "-test.count=10", "-test.v" ]
+ENTRYPOINT [ "/bin/tests", "-test.timeout=2s", "-test.count=2", "-test.v" ]
