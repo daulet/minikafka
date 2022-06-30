@@ -1,13 +1,18 @@
 # Must
 
+bench: e2e latency
+bench: idle time, after running tests (all conns should be closed)
+broker: publisher conn timeouts
+
 move tests to docker:
+add a health check to ensure that at least one test ran
 Add latency test to verify write/read decoupling in publisher: write shouldnt take ~= latency
 setup benchmark, start with kafka, use toxiproxy to simulate latency across brokers
 test that broker.log is appended, not replaced
 publisher test fails if we dont listen for ack in test
 test publish failure is correctly communicated to publisher
 
-bench: e2e latency 
+
 batching in publish and subscribe
 
 Multiple broker support with all ack

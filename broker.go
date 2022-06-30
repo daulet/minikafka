@@ -257,7 +257,7 @@ func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
-	t := time.After(b.pollingTimeout)
+	t := time.After(10 * time.Millisecond)
 	for {
 		select {
 		case <-ctx.Done():
@@ -266,8 +266,8 @@ func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 		case <-t:
 			// TODO this affects overall e2e latency
 			w.Flush()
-			// TODO smaller timeout to speed up e2e latency
-			t = time.After(b.pollingTimeout)
+			// TODO bench for optimal e2e latency
+			t = time.After(10 * time.Millisecond)
 		case msg := <-msgCh:
 			_, err := w.Write(msg)
 			if err != nil {
@@ -346,13 +346,28 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 	}
 	defer socket.Close()
 
+	connCtx, cancel := context.WithCancel(ctx)
+	{
+		go func(ctx context.Context) {
+			buf := make([]byte, 1)
+			for {
+				// twice as long as subscriber heartbeat interval
+				conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+				_, err := conn.Read(buf)
+				if err != nil {
+					cancel()
+					return
+				}
+			}
+		}(ctx)
+	}
 	var (
 		offset int64
 		werr   error
 	)
 	for {
 		select {
-		case <-ctx.Done():
+		case <-connCtx.Done():
 			return
 		default:
 		}
@@ -369,6 +384,10 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 		}
 		if err != nil {
 			log.Fatalf("unable to send file: %v", err)
+		}
+		// don't stay on CPU if there are no new messages
+		if offset == prevOffset {
+			<-time.After(100 * time.Millisecond)
 		}
 	}
 }

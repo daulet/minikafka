@@ -1,7 +1,9 @@
 package client
 
 import (
+	"context"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/daulet/minikafka"
@@ -12,6 +14,9 @@ type Subscriber struct {
 	conn  *net.TCPConn
 	rdr   *minikafka.MessageReader[[]byte]
 	topic string
+
+	wg     sync.WaitGroup
+	cancel context.CancelFunc
 }
 
 type SubscriberConfig func(p *Subscriber)
@@ -47,6 +52,26 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 			return nil, err
 		}
 	}
+	// send heartbeat to broker every second
+	{
+		ctx, cancel := context.WithCancel(context.Background())
+		s.wg.Add(1)
+		go func(ctx context.Context) {
+			defer s.wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Second):
+				}
+				_, err := s.conn.Write([]byte{0})
+				if err != nil {
+					return
+				}
+			}
+		}(ctx)
+		s.cancel = cancel
+	}
 	return s, nil
 }
 
@@ -59,6 +84,8 @@ func (s *Subscriber) Read() ([]byte, error) {
 }
 
 func (s *Subscriber) Close() {
+	s.cancel()
+	s.wg.Wait()
 	s.conn.Close()
 	s.conn = nil
 }
