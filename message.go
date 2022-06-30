@@ -116,6 +116,8 @@ func (r *MessageReader[_]) ReadByte() (byte, error) {
 
 func (r *MessageReader[_]) readBytes(n int) ([]byte, error) {
 	if len(r.buffer) < n {
+		// To show value of this method, replace the next line with the following:
+		// m, err := r.conn.Read(r.temp)
 		m, err := io.ReadAtLeast(r.conn, r.temp, n-len(r.buffer))
 		if err != nil {
 			return nil, err

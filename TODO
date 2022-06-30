@@ -2,7 +2,6 @@
 
 move tests to docker:
 Add latency test to verify write/read decoupling in publisher: write shouldnt take ~= latency
-use toxyproxy slicer to test message parsing: https://github.com/Shopify/toxiproxy#slicer
 setup benchmark, start with kafka, use toxiproxy to simulate latency across brokers
 test that broker.log is appended, not replaced
 publisher test fails if we dont listen for ack in test
