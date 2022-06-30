@@ -85,8 +85,6 @@ func BenchmarkPublish1Topic(b *testing.B) {
 }
 
 func BenchmarkThroughput(b *testing.B) {
-	rand.Seed(time.Now().UnixNano())
-
 	var (
 		wg          sync.WaitGroup
 		ctx, cancel = context.WithCancel(context.Background())
@@ -216,6 +214,12 @@ func BenchmarkThroughput(b *testing.B) {
 
 	cancel()
 	wg.Wait()
+}
+
+func TestMain(m *testing.M) {
+	rand.Seed(time.Now().UnixNano())
+
+	os.Exit(m.Run())
 }
 
 func Test_Publish1Topic(t *testing.T) {

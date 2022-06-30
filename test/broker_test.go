@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -13,9 +14,10 @@ import (
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
+
+	os.Exit(m.Run())
 }
 
-// TODO add bench equivalent to this test
 func TestWritesAreAcked(t *testing.T) {
 	var (
 		proxyPort = 9081
@@ -38,6 +40,7 @@ func TestWritesAreAcked(t *testing.T) {
 	{
 		pub, err := client.NewPublisher(
 			client.PublisherBrokerAddress(proxyAddr),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -106,6 +109,7 @@ func TestAllPublished(t *testing.T) {
 	{
 		pub, err := client.NewPublisher(
 			client.PublisherBrokerAddress(fmt.Sprintf("toxiproxy:%d", proxyPubPort)),
+			client.PublisherTopic(topic),
 		)
 		if err != nil {
 			t.Fatal(err)
