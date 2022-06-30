@@ -2,7 +2,6 @@
 
 bench: e2e latency
 bench: idle time, after running tests (all conns should be closed)
-broker: publisher conn timeouts
 
 move tests to docker:
 add a health check to ensure that at least one test ran

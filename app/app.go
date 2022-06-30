@@ -28,7 +28,7 @@ func main() {
 		minikafka.BrokerPublishPort(pubPort),
 		minikafka.BrokerSubscribePort(subPort),
 		minikafka.BrokerStoreaDir(storeDir),
-		minikafka.BrokerPollingTimeout(100*time.Millisecond),
+		minikafka.BrokerPollingTimeout(time.Second),
 	)
 	broker.Run(ctx)
 }

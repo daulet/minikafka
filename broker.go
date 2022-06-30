@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const maxTimeouts = 5
+
 /*
 	Broker process is to be booted on each node of deployment.
 */
@@ -147,6 +149,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
 
+	reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
 		log.Printf("failed to read topic of publisher: %v", err)
@@ -159,6 +162,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 		return
 	}
 
+	timeouts := maxTimeouts
 	for {
 		// separately check for closed context is necessary in case of read timeout
 		select {
@@ -171,6 +175,10 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 		raw, err := reader.ReadRaw()
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
+				timeouts -= 1
+				if timeouts == 0 {
+					return
+				}
 				continue
 			}
 			if err != io.EOF {
@@ -178,6 +186,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 			}
 			return
 		}
+		timeouts = maxTimeouts
 
 		select {
 		// TODO decide if acks should be ordered, how does kafka do it?
@@ -317,6 +326,7 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
 
+	reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
 		log.Printf("failed to decode message: %v\n", err)
@@ -372,6 +382,7 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 		default:
 		}
 
+		prevOffset := offset
 		err = sc.Read(func(fd uintptr) bool {
 			_, werr = syscall.Sendfile(int(socket.Fd()), int(fd), &offset, maxSendfileSize)
 			return true
