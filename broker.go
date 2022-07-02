@@ -259,7 +259,7 @@ func (b *Broker) writeTopics(ctx context.Context, topics <-chan topicChannel) {
 
 func (b *Broker) write(ctx context.Context, topic string, msgCh <-chan []byte) {
 	// don't pass O_CREATE, file is ensured upstream, panic otherwise
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_RDWR|os.O_APPEND, 0660)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_WRONLY|os.O_APPEND, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -322,11 +322,13 @@ LOOP:
 // somehow using larger size reduces throughput
 const maxSendfileSize int = 1 << 7
 
+// TODO simplify this to use io.Copy() when sendfile issue is fixed:
+// https://github.com/golang/go/issues/53658
 func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topicChannel) {
 	reader := NewMessageReader[[]byte](conn)
 	defer reader.Close()
 
-	reader.SetDeadline(time.Now().Add(b.pollingTimeout))
+	conn.SetReadDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
 		log.Printf("failed to decode message: %v\n", err)
@@ -339,7 +341,7 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 		return
 	}
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_RDONLY, 0660)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.log", b.storageDir, topic), os.O_APPEND|os.O_RDONLY, 0660)
 	if err != nil {
 		log.Fatal(err)
 	}
