@@ -233,7 +233,7 @@ func Test_Publish1Topic(t *testing.T) {
 func Test_Throughput(t *testing.T) {
 	bm := testing.Benchmark(BenchmarkThroughput)
 	fmt.Printf("BenchmarkThroughput:		%v		%v ns/op\n", bm.N, bm.NsPerOp())
-	if bm.NsPerOp() > 14000 { // 14 microseconds, based on Github Actions SKU
+	if bm.NsPerOp() > 15000 { // 15 microseconds, based on Github Actions SKU
 		panic(fmt.Errorf("BenchmarkThroughput speed is too low: %v ns/op", bm.NsPerOp()))
 	}
 }
