@@ -196,6 +196,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 			_, err := reader.writeBytes([]byte("K"))
 			if err != nil {
 				log.Printf("failed to ack message: %v\n", err)
+				return
 			}
 		case <-ctx.Done():
 			return

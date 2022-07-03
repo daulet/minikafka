@@ -21,6 +21,8 @@ type Connection interface {
 	Close() error
 }
 
+// TODO should support copying to writer so we can copy
+// or should just implement Reader but always return correct buckets
 // MessageReader wraps a TCP stream to read/write valid Message.
 type MessageReader[T any] struct {
 	conn   Connection
@@ -62,9 +64,7 @@ func (r *MessageReader[_]) ReadPayload() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	cb := make([]byte, len(b))
-	copy(cb, b)
-	return cb, nil
+	return b, nil
 }
 
 func (r *MessageReader[_]) ReadRaw() ([]byte, error) {
@@ -72,13 +72,14 @@ func (r *MessageReader[_]) ReadRaw() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw := b
 	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	raw := make([]byte, n+4)
+	copy(raw[:4], b)
 	b, err = r.readBytes(n)
 	if err != nil {
 		return nil, err
 	}
-	raw = append(raw, b...)
+	copy(raw[4:], b)
 	return raw, nil
 }
 
