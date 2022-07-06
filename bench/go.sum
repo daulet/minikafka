@@ -1,2 +1,8 @@
 github.com/confluentinc/confluent-kafka-go v1.8.2 h1:PBdbvYpyOdFLehj8j+9ba7FL4c4Moxn79gy9cYKxG5E=
 github.com/confluentinc/confluent-kafka-go v1.8.2/go.mod h1:u2zNLny2xq+5rWeTQjFHbDzzNuba4P1vo31r9r4uAdg=
+github.com/daulet/minikafka v0.0.0-20220702053237-3a6a25c06dc2 h1:VK7ESPWQOMQvZEaGW36k7eTilu+s6FryCTRh6joaJf4=
+github.com/daulet/minikafka v0.0.0-20220702053237-3a6a25c06dc2/go.mod h1:zmmw5ujGKIDCFCJjVJbjyzoI5yUmmHca1msVxPKiFdg=
+github.com/daulet/minikafka/client v0.0.0-20220702053237-3a6a25c06dc2 h1:ltHtHaL2ss56lyxwe7+NPr3Ww8mqLZkhhVZUfjpuZ+o=
+github.com/daulet/minikafka/client v0.0.0-20220702053237-3a6a25c06dc2/go.mod h1:j3B9uLBmmEmT/3xYp14LR0039iF5GlVUhwetjfZ8rpk=
+github.com/jamiealquiza/tachymeter v2.0.0+incompatible h1:mGiF1DGo8l6vnGT8FXNNcIXht/YmjzfraiUprXYwJ6g=
+github.com/jamiealquiza/tachymeter v2.0.0+incompatible/go.mod h1:Ayf6zPZKEnLsc3winWEXJRkTBhdHo58HODAu1oFJkYU=

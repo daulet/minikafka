@@ -1,6 +1,5 @@
 # Must
 
-bench: e2e latency
 bench: idle time, after running tests (all conns should be closed)
 
 move tests to docker:
