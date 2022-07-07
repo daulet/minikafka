@@ -133,7 +133,6 @@ LOOP:
 		default:
 		}
 
-		b.Logf("accepting new publisher\n")
 		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
 		conn, err := lstr.Accept()
 		if err != nil {
@@ -308,7 +307,6 @@ LOOP:
 		default:
 		}
 
-		b.Logf("accepting new subscribers\n")
 		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
 		conn, err := lstr.Accept()
 		if err != nil {
