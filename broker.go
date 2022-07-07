@@ -16,8 +16,8 @@ import (
 const maxTimeouts = 5
 
 /*
-	Broker process is to be booted on each node of deployment.
-*/
+ * Broker process is to be booted on each node of deployment.
+ */
 type Broker struct {
 	pubPort        int
 	subPort        int
@@ -26,6 +26,8 @@ type Broker struct {
 
 	knownTopics     map[string]topicChannel
 	knownTopicsLock sync.RWMutex
+
+	debug bool
 }
 
 type BrokerConfig func(b *Broker)
@@ -65,7 +67,14 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 		opt(b)
 	}
 	b.knownTopics = make(map[string]topicChannel)
+	b.debug = os.Getenv("DEBUG") == "1"
 	return b
+}
+
+func (b *Broker) Logf(format string, args ...interface{}) {
+	if b.debug {
+		log.Printf(format, args...)
+	}
 }
 
 func (b *Broker) Run(ctx context.Context) {
@@ -124,6 +133,7 @@ LOOP:
 		default:
 		}
 
+		b.Logf("accepting new publisher\n")
 		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
 		conn, err := lstr.Accept()
 		if err != nil {
@@ -152,13 +162,13 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 	reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
-		log.Printf("failed to read topic of publisher: %v", err)
+		b.Logf("failed to read topic of publisher: %v\n", err)
 		return
 	}
 	topic := string(data)
 	msgCh, err := b.ensureTopic(topics, topic)
 	if err != nil {
-		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
+		b.Logf("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
 		return
 	}
 
@@ -182,7 +192,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 				continue
 			}
 			if err != io.EOF {
-				log.Printf("failed to decode message: %v\n", err)
+				b.Logf("failed to decode message: %v\n", err)
 			}
 			return
 		}
@@ -195,7 +205,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 			_, err := reader.writeBytes([]byte("K"))
 			if err != nil {
-				log.Printf("failed to ack message: %v\n", err)
+				b.Logf("failed to ack message: %v\n", err)
 				return
 			}
 		case <-ctx.Done():
@@ -298,6 +308,7 @@ LOOP:
 		default:
 		}
 
+		b.Logf("accepting new subscribers\n")
 		lstr.SetDeadline(time.Now().Add(b.pollingTimeout))
 		conn, err := lstr.Accept()
 		if err != nil {
@@ -332,13 +343,13 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 	conn.SetReadDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
-		log.Printf("failed to decode message: %v\n", err)
+		b.Logf("failed to decode message: %v\n", err)
 		return
 	}
 	topic := string(data)
 	_, err = b.ensureTopic(topics, topic)
 	if err != nil {
-		log.Printf("%v sent invalid topic: %v", conn.RemoteAddr(), err)
+		b.Logf("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
 		return
 	}
 

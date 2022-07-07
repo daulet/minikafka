@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 )
 
@@ -12,11 +13,14 @@ func dial(network, addr string, maxTimeout time.Duration) (net.Conn, error) {
 		conn    net.Conn
 		err     error
 		timeout = time.Millisecond
+		debug   = os.Getenv("DEBUG") == "1"
 	)
 	for timeout < maxTimeout {
 		conn, err = net.DialTimeout(network, addr, timeout)
 		if err != nil {
-			log.Printf("dial %v: timeout after %v, will retry\n", addr, timeout)
+			if debug {
+				log.Printf("dial %v: timeout after %v, will retry\n", addr, timeout)
+			}
 			timeout += timeout
 			continue
 		}
