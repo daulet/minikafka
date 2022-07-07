@@ -71,10 +71,14 @@ func NewBroker(opts ...BrokerConfig) *Broker {
 	return b
 }
 
-func (b *Broker) Logf(format string, args ...interface{}) {
+func (b *Broker) Debugf(format string, args ...interface{}) {
 	if b.debug {
 		log.Printf(format, args...)
 	}
+}
+
+func (b *Broker) Infof(format string, args ...interface{}) {
+	log.Printf(format, args...)
 }
 
 func (b *Broker) Run(ctx context.Context) {
@@ -161,13 +165,13 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 	reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
-		b.Logf("failed to read topic of publisher: %v\n", err)
+		b.Infof("failed to read topic of publisher: %v\n", err)
 		return
 	}
 	topic := string(data)
 	msgCh, err := b.ensureTopic(topics, topic)
 	if err != nil {
-		b.Logf("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
+		b.Infof("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
 		return
 	}
 
@@ -191,7 +195,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 				continue
 			}
 			if err != io.EOF {
-				b.Logf("failed to decode message: %v\n", err)
+				b.Infof("failed to decode message: %v\n", err)
 			}
 			return
 		}
@@ -204,7 +208,7 @@ func (b *Broker) handle(ctx context.Context, conn *net.TCPConn, topics chan<- to
 			reader.SetDeadline(time.Now().Add(b.pollingTimeout))
 			_, err := reader.writeBytes([]byte("K"))
 			if err != nil {
-				b.Logf("failed to ack message: %v\n", err)
+				b.Infof("failed to ack message: %v\n", err)
 				return
 			}
 		case <-ctx.Done():
@@ -341,13 +345,13 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 	conn.SetReadDeadline(time.Now().Add(b.pollingTimeout))
 	data, err := reader.ReadPayload()
 	if err != nil {
-		b.Logf("failed to decode message: %v\n", err)
+		b.Infof("failed to decode message: %v\n", err)
 		return
 	}
 	topic := string(data)
 	_, err = b.ensureTopic(topics, topic)
 	if err != nil {
-		b.Logf("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
+		b.Infof("%v sent invalid topic: %v\n", conn.RemoteAddr(), err)
 		return
 	}
 
@@ -370,6 +374,7 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 
 	connCtx, cancel := context.WithCancel(ctx)
 	{
+		// TODO what if the main loop below exited?
 		go func(ctx context.Context) {
 			buf := make([]byte, 1)
 			for {
@@ -406,7 +411,8 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 			continue
 		}
 		if err != nil {
-			log.Fatalf("unable to send file: %v", err)
+			b.Infof("unable to send file: %v\n", err)
+			break
 		}
 		// don't stay on CPU if there are no new messages
 		if offset == prevOffset {

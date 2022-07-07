@@ -76,6 +76,8 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 }
 
 func (s *Subscriber) Read() ([]byte, error) {
+	// TODO tunable timeout parameter
+	s.conn.SetReadDeadline(time.Now().Add(time.Second))
 	msg, err := s.rdr.ReadPayload()
 	if err != nil {
 		return nil, err

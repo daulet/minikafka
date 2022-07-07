@@ -1,6 +1,7 @@
 # Must
 
-bench: idle time, after running tests (all conns should be closed)
+bench idle publisher time
+bench fully idle time
 
 move tests to docker:
 test when pub or sub went away (no close) - verify recent changes to pub & sub timeouts (last 2 commits)

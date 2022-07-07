@@ -1,11 +1,13 @@
 package bench_test
 
 import (
+	bench "bench/minikafka"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"sync"
 	"testing"
@@ -370,6 +372,126 @@ func Test_Latency(t *testing.T) {
 	if p99 > time.Duration(1.5*float64(time.Second)) { // 1.5 sec, based on Github Actions SKU
 		panic(fmt.Errorf("BenchmarkEndToEndLatency (p99) is too high: %v", p99))
 	}
+}
+
+// Test idle consumption while some subscribers are connected
+func Test_BenchmarkIdleTimeServingSubscribers(t *testing.T) {
+	var (
+		wg          sync.WaitGroup
+		ctx, cancel = context.WithCancel(context.Background())
+
+		pubPort = 5555
+		subPort = 5556
+		pubs    = 10
+		subs    = 10
+		msgs    = 10
+		topic   = randSeq(10)
+	)
+
+	// run broker
+	{
+		broker := minikafka.NewBroker(
+			minikafka.BrokerPublishPort(pubPort),
+			minikafka.BrokerSubscribePort(subPort),
+			minikafka.BrokerStoreaDir(os.TempDir()),
+			minikafka.BrokerPollingTimeout(100*time.Millisecond),
+		)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			broker.Run(ctx)
+		}()
+	}
+
+	var (
+		subCtx, subCancel = context.WithCancel(context.Background())
+		subGrp            sync.WaitGroup
+	)
+	{
+		subGrp.Add(subs)
+		for i := 0; i < subs; i++ {
+			go func(ctx context.Context, _ int) {
+				defer subGrp.Done()
+
+				sub, err := client.NewSubscriber(
+					client.SubscriberBrokerAddress(fmt.Sprintf("127.0.0.1:%d", subPort)),
+					client.SubscriberTopic(topic),
+				)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer sub.Close()
+
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
+
+					_, err := sub.Read()
+					if err != nil {
+						if err, ok := err.(net.Error); ok && err.Timeout() {
+							continue
+						}
+						t.Error(err)
+						break
+					}
+				}
+			}(subCtx, msgs)
+		}
+	}
+	var pubGrp sync.WaitGroup
+	{
+		pubGrp.Add(pubs)
+		for i := 0; i < pubs; i++ {
+			go func() {
+				defer pubGrp.Done()
+
+				pub, err := client.NewPublisher(
+					client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+					client.PublisherTopic(topic),
+				)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer pub.Close()
+
+				for i := 0; i < msgs; i++ {
+					payload := []byte("test message")
+					if err := pub.Publish(topic, &payload); err != nil {
+						t.Errorf("error publishing message: %v", err)
+					}
+				}
+			}()
+		}
+	}
+
+	// make sure publishers don't polute metrics
+	pubGrp.Wait()
+
+	// measure idle time with some subscribers
+
+	cpuBefore := bench.GeProcessCpuTime()
+	<-time.After(time.Second)
+	cpuAfter := bench.GeProcessCpuTime()
+	cputime := cpuAfter - cpuBefore
+	t.Logf("Idle CPU time = %s\n", cputime)
+
+	// before sleeping in broker.publish() CPU time was over 10s for 1s walltime
+	if cputime > time.Duration(50*time.Millisecond) {
+		t.Errorf("Idle CPU time is too high: %v", cputime)
+	}
+
+	// shutdown subscribers
+	subCancel()
+	subGrp.Wait()
+
+	cancel()
+	wg.Wait()
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

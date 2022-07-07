@@ -13,6 +13,8 @@ import (
 	"github.com/daulet/minikafka/client"
 )
 
+// TODO this test didn't fail when Idle benchmark did, discovering a bug in sendfile error handling.
+// Is this a useful test?
 func TestFailedSubscriber(t *testing.T) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
