@@ -38,7 +38,7 @@ func NewSubscriber(opts ...SubscriberConfig) (*Subscriber, error) {
 	for _, opt := range opts {
 		opt(s)
 	}
-	conn, err := dial("tcp", s.addr, time.Second)
+	conn, err := dial("tcp", s.addr, 2*time.Second)
 	if conn == nil {
 		return nil, err
 	}

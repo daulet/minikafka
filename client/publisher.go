@@ -43,7 +43,7 @@ func NewPublisher(opts ...PublisherConfig) (*Publisher, error) {
 	if p.topic == "" {
 		return nil, fmt.Errorf("topic is required")
 	}
-	conn, err := dial("tcp", p.addr, time.Second)
+	conn, err := dial("tcp", p.addr, 2*time.Second)
 	if conn == nil {
 		return nil, err
 	}
