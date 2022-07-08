@@ -9,6 +9,8 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -345,6 +347,17 @@ func BenchmarkEndToEndLatency(b *testing.B) {
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
+
+	fmt.Println("------------------------------------------------------")
+	fmt.Printf("NumCPU=%v\n", runtime.NumCPU())
+	fmt.Printf("GOMAXPROCS=%v\n", runtime.GOMAXPROCS(0))
+
+	if out, err := exec.Command("lscpu").Output(); err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("\n%s\n", out)
+	}
+	fmt.Println("------------------------------------------------------")
 
 	os.Exit(m.Run())
 }
