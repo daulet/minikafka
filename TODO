@@ -1,5 +1,7 @@
 # Must
 
+add CPU time to each bench? ns/op might stay the same, but on CPU time might drastically go down between changes
+
 bench idle publisher time
 bench fully idle time
 baseline for all benchmarks - results vary greatly based on the state of the machine, normalize results to some througput, eg mem speed

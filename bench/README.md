@@ -74,3 +74,9 @@ BenchmarkThroughput-16           4554684              8198 ns/op            1041
 BenchmarkThroughput-16           4182267              9025 ns/op             750 B/op         26 allocs/op
 BenchmarkThroughput-16           3827070              9128 ns/op             748 B/op         26 allocs/op
 ```
+[Don't stay on CPU when there are no changes to publish](https://github.com/daulet/minikafka/commit/9b1eb49def45d2df838635eabe29a588cca391d7#diff-879d7ff817ef6271a190861e67ab0ff3a2751136cedff764b3f680565540dc2bR390)
+```
+BenchmarkThroughput-16           4222543              8485 ns/op             702 B/op         16 allocs/op
+BenchmarkThroughput-16           4476354              8253 ns/op             431 B/op         15 allocs/op
+BenchmarkThroughput-16           4447429              8302 ns/op             410 B/op         15 allocs/op
+```
