@@ -2,6 +2,7 @@
 
 bench idle publisher time
 bench fully idle time
+baseline for all benchmarks - results vary greatly based on the state of the machine, normalize results to some througput, eg mem speed
 
 move tests to docker:
 test when pub or sub went away (no close) - verify recent changes to pub & sub timeouts (last 2 commits)

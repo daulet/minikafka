@@ -7,6 +7,28 @@ go tool pprof profile.out
 (pprof) list handle
 ```
 
+To normalize across hardware differences, here is a snapshot:
+```
+$ lscpu | grep BogoMIPS 
+BogoMIPS:                        6587.68
+$ go test -bench=. -benchmem -run=^\$ -count=3
+goos: linux
+goarch: amd64
+pkg: bench/minikafka
+cpu: AMD Ryzen 9 5900HS with Radeon Graphics        
+BenchmarkPublish1Topic-16         136630              8107 ns/op             368 B/op         10 allocs/op
+BenchmarkPublish1Topic-16         148341              8074 ns/op             332 B/op         10 allocs/op
+BenchmarkPublish1Topic-16         147409              7624 ns/op             294 B/op         10 allocs/op
+BenchmarkThroughput-16            113343              9284 ns/op             382 B/op         15 allocs/op
+BenchmarkThroughput-16            144178              8772 ns/op             392 B/op         15 allocs/op
+BenchmarkThroughput-16            151826              8493 ns/op             395 B/op         15 allocs/op
+BenchmarkEndToEndLatency-16       129237              8289 ns/op         868649066 ns(p99)           367 B/op         14 allocs/op
+BenchmarkEndToEndLatency-16       128178              8405 ns/op         853505266 ns(p99)           363 B/op         14 allocs/op
+BenchmarkEndToEndLatency-16       130908              8854 ns/op         940777821 ns(p99)           376 B/op         14 allocs/op
+PASS
+ok      bench/minikafka 35.191s
+```
+
 ## Publish & ack
 Initial result:
 ```
