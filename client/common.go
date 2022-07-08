@@ -21,6 +21,7 @@ func dial(network, addr string, maxTimeout time.Duration) (net.Conn, error) {
 			if debug {
 				log.Printf("dial %v: timeout after %v, will retry\n", addr, timeout)
 			}
+			<-time.After(timeout)
 			timeout += timeout
 			continue
 		}
