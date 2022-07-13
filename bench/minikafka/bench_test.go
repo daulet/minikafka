@@ -20,13 +20,16 @@ import (
 	"github.com/jamiealquiza/tachymeter"
 )
 
+var (
+	workers = 2 * runtime.GOMAXPROCS(0)
+)
+
 func BenchmarkPublish1Topic(b *testing.B) {
 	var (
 		wg          sync.WaitGroup
 		ctx, cancel = context.WithCancel(context.Background())
 		msgs        = b.N
 
-		workers = 32
 		pubPort = 5555
 		subPort = 5556
 		topic   = "test_topic"
