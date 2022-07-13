@@ -26,6 +26,7 @@ func BenchmarkPublish1Topic(b *testing.B) {
 		ctx, cancel = context.WithCancel(context.Background())
 		msgs        = b.N
 
+		workers = 32
 		pubPort = 5555
 		subPort = 5556
 		topic   = "test_topic"
@@ -43,49 +44,42 @@ func BenchmarkPublish1Topic(b *testing.B) {
 		defer wg.Done()
 		broker.Run(ctx)
 	}()
+
+	b.ResetTimer()
 	{
-		pub, err := client.NewPublisher(
-			client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
-			client.PublisherTopic(topic),
-		)
-		if err != nil {
-			b.Fatal(err)
-		}
-		defer pub.Close()
-
-		b.ResetTimer()
-
-		var (
-			workGrp sync.WaitGroup
-			msgCh   = make(chan *[]byte)
-			payload = []byte("Hello")
-		)
-
-		for i := 0; i < msgs; i++ {
-			select {
-			case msgCh <- &payload:
-				continue
-			default:
+		var workGrp sync.WaitGroup
+		workGrp.Add(workers)
+		for i := 0; i < workers; i++ {
+			count := msgs / workers
+			if i < msgs%workers {
+				count++
 			}
 
-			workGrp.Add(1)
-			go func() {
+			go func(count int) {
 				defer workGrp.Done()
 
-				for msg := range msgCh {
-					if err := pub.Publish(topic, msg); err != nil {
+				pub, err := client.NewPublisher(
+					client.PublisherBrokerAddress(fmt.Sprintf("127.0.0.1:%d", pubPort)),
+					client.PublisherTopic(topic),
+				)
+				if err != nil {
+					b.Error(err)
+					return
+				}
+				defer pub.Close()
+
+				payload := []byte("Hello")
+				for i := 0; i < count; i++ {
+					if err := pub.Publish(topic, &payload); err != nil {
 						b.Errorf("error publishing message: %v", err)
 					}
 				}
-			}()
-
-			msgCh <- &payload
+			}(count)
 		}
-		close(msgCh)
 		workGrp.Wait()
-
-		b.StopTimer()
 	}
+	b.StopTimer()
+
 	cancel()
 	wg.Wait()
 }

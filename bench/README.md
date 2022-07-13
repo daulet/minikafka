@@ -60,6 +60,12 @@ BenchmarkPublish1Topic-16        4433725              7851 ns/op             596
 BenchmarkPublish1Topic-16        4621489              7754 ns/op             314 B/op         10 allocs/op
 BenchmarkPublish1Topic-16        4418972              7768 ns/op             296 B/op         10 allocs/op
 ```
+Use multiple publishers in the benchmark:
+```
+BenchmarkPublish1Topic-16        6590246              1893 ns/op             160 B/op          9 allocs/op
+BenchmarkPublish1Topic-16        6302650              1895 ns/op             160 B/op          9 allocs/op
+BenchmarkPublish1Topic-16        6272566              1950 ns/op             160 B/op          9 allocs/op
+```
 
 ## End to End pub & sub
 Initial:
