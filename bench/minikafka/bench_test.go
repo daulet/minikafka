@@ -281,7 +281,10 @@ func BenchmarkEndToEndLatency(b *testing.B) {
 					break
 				}
 			}
-			subP99 <- t.Calc().Time.P99
+			metrics := t.Calc()
+			subP99 <- metrics.Time.P99
+
+			b.Logf("Histogram:\n%v\n", metrics.Histogram.String(25))
 		}(total)
 	}
 	{
