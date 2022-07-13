@@ -379,6 +379,7 @@ func (b *Broker) publish(ctx context.Context, conn net.Conn, topics chan<- topic
 			buf := make([]byte, 1)
 			for {
 				// twice as long as subscriber heartbeat interval
+				// TODO replace with keepalive?
 				conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 				_, err := conn.Read(buf)
 				if err != nil {

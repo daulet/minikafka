@@ -1,10 +1,19 @@
 # Must
 
+Update benchmark to use separate conns per goroutine, see echo benchmark 
+
+create a simple tcp echo server to measure baseline for publish bench
+setup consistent benchmarking https://easyperf.net/blog/2019/08/02/Perf-measurement-environment-on-Linux#1-disable-turboboost
+
+add a unit test wtih small chance of message failure (value of which can be set via private field)
+to verify that the right message gets nacked
+
 add CPU time to each bench? ns/op might stay the same, but on CPU time might drastically go down between changes
 
 bench idle publisher time
 bench fully idle time
 baseline for all benchmarks - results vary greatly based on the state of the machine, normalize results to some througput, eg mem speed
+maybe it should be CPUtime * frequency?
 
 move tests to docker:
 test when pub or sub went away (no close) - verify recent changes to pub & sub timeouts (last 2 commits)
@@ -23,6 +32,7 @@ Multiple broker support with all ack
 clean up producer.go or setup better benchmark:
 https://docs.confluent.io/kafka-clients/go/current/overview.html#go-example-code
 
+move core copying to eBPF?
 
 ## Nice to have
 
